@@ -1,251 +1,196 @@
-import {
-  convertToModelMessages,
-  createUIMessageStream,
-  JsonToSseTransformStream,
-  smoothStream,
-  stepCountIs,
-  streamText,
-} from 'ai';
-import { auth, type UserType } from '@/app/(auth)/auth';
-import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
-import {
-  createStreamId,
-  deleteChatById,
-  getChatById,
-  getMessageCountByUserId,
-  getMessagesByChatId,
-  saveChat,
-  saveMessages,
-} from '@/lib/db/queries';
-import { convertToUIMessages, generateUUID } from '@/lib/utils';
-import { generateTitleFromUserMessage } from '../../actions';
-import { createDocument } from '@/lib/ai/tools/create-document';
-import { updateDocument } from '@/lib/ai/tools/update-document';
-import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
-import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider } from '@/lib/ai/providers';
-import { entitlementsByUserType } from '@/lib/ai/entitlements';
-import { postRequestBodySchema, type PostRequestBody } from './schema';
-import { geolocation } from '@vercel/functions';
-import {
-  createResumableStreamContext,
-  type ResumableStreamContext,
-} from 'resumable-stream';
-import { after } from 'next/server';
-import { ChatSDKError } from '@/lib/errors';
+// Proxy to Woolly Backend using AI SDK v5 createUIMessageStream (correct approach for useChat)
+import { WOOLLY_BACKEND_URL } from '@/lib/constants';
+import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
 import type { ChatMessage } from '@/lib/types';
-import type { ChatModel } from '@/lib/ai/models';
-import type { VisibilityType } from '@/components/visibility-selector';
 
 export const maxDuration = 60;
 
-let globalStreamContext: ResumableStreamContext | null = null;
-
-export function getStreamContext() {
-  if (!globalStreamContext) {
-    try {
-      globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
-      });
-    } catch (error: any) {
-      if (error.message.includes('REDIS_URL')) {
-        console.log(
-          ' > Resumable streams are disabled due to missing REDIS_URL',
-        );
-      } else {
-        console.error(error);
-      }
-    }
-  }
-
-  return globalStreamContext;
-}
-
 export async function POST(request: Request) {
-  let requestBody: PostRequestBody;
+	try {
+		const body = await request.json();
+		const { id, message } = body;
 
-  try {
-    const json = await request.json();
-    requestBody = postRequestBodySchema.parse(json);
-  } catch (_) {
-    return new ChatSDKError('bad_request:api').toResponse();
-  }
+		// Transform frontend request to Woolly backend format
+		const woollyRequest = {
+			messages: [
+				{
+					role: message.role,
+					content: message.parts.find((part: { type: string; text: string; }) => part.type === 'text')?.text || '',
+					id: message.id,
+				}
+			],
+			model: 'gpt-4o',
+		};
 
-  try {
-    const {
-      id,
-      message,
-      selectedChatModel,
-      selectedVisibilityType,
-    }: {
-      id: string;
-      message: ChatMessage;
-      selectedChatModel: ChatModel['id'];
-      selectedVisibilityType: VisibilityType;
-    } = requestBody;
+		// Use provided ID or generate new UUID (backend will auto-create chat if needed)
+		const chatId = id || crypto.randomUUID();
 
-    const session = await auth();
+		// Create UI message stream using AI SDK helper (correct approach for useChat)
+		const messageStream = createUIMessageStream<ChatMessage>({
+			execute: async ({ writer }) => {
+				try {
+					// Proxy to Woolly backend
+					const response = await fetch(`${WOOLLY_BACKEND_URL}/api/chat/${chatId}`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify(woollyRequest),
+					});
 
-    if (!session?.user) {
-      return new ChatSDKError('unauthorized:chat').toResponse();
-    }
+					if (!response.ok) {
+						throw new Error(`Backend error: ${response.status}`);
+					}
 
-    const userType: UserType = session.user.type;
+					const reader = response.body?.getReader();
+					if (!reader) {
+						throw new Error('No response body to stream');
+					}
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 24,
-    });
+					const decoder = new TextDecoder();
+					let buffer = '';
+					let messageId = crypto.randomUUID();
+					let chunkCount = 0;
+					let textDeltaCount = 0;
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
-      return new ChatSDKError('rate_limit:chat').toResponse();
-    }
+					console.log('🚀 Starting to read from Woolly backend...');
 
-    const chat = await getChatById({ id });
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) {
+							console.log('📝 Backend stream ended, total chunks:', chunkCount);
+							break;
+						}
 
-    if (!chat) {
-      const title = await generateTitleFromUserMessage({
-        message,
-      });
+						chunkCount++;
+						const rawChunk = decoder.decode(value, { stream: true });
+						console.log(`📦 Raw chunk ${chunkCount}:`, JSON.stringify(rawChunk));
+						
+						buffer += rawChunk;
+						const lines = buffer.split('\n');
+						buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
-      await saveChat({
-        id,
-        userId: session.user.id,
-        title,
-        visibility: selectedVisibilityType,
-      });
-    } else {
-      if (chat.userId !== session.user.id) {
-        return new ChatSDKError('forbidden:chat').toResponse();
-      }
-    }
+						console.log(`🔍 Processing ${lines.length} lines from chunk ${chunkCount}`);
 
-    const messagesFromDb = await getMessagesByChatId({ id });
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+						for (const line of lines) {
+							if (line.trim()) {
+								console.log('📄 Processing line:', JSON.stringify(line));
+								
+								// Parse Woolly backend streaming format and convert to AI SDK format
+								if (line.startsWith('0:')) {
+									// Text chunk: 0:{"type":"text","text":"content"}
+									const jsonStr = line.substring(2);
+									console.log('🔤 Text chunk JSON:', jsonStr);
+									try {
+										const data = JSON.parse(jsonStr);
+										console.log('🔤 Parsed text data:', data);
+										if (data.type === 'text' && data.text) {
+											textDeltaCount++;
+											console.log(`✅ Writing text-delta #${textDeltaCount}:`, JSON.stringify(data.text));
+											// Write text delta using AI SDK writer
+											writer.write({
+												type: 'text-delta',
+												delta: data.text,
+												id: messageId,
+											});
+											console.log(`📤 Sent text-delta #${textDeltaCount} to AI SDK`);
+										} else {
+											console.log('⚠️ Text chunk missing type or text:', data);
+										}
+									} catch (e) {
+										console.error('❌ Failed to parse text chunk:', e, 'Line:', line);
+									}
+								} else if (line.startsWith('1:')) {
+									// Message start from backend - extract the ID if provided
+									const jsonStr = line.substring(2);
+									console.log('🆔 Message start JSON:', jsonStr);
+									try {
+										const data = JSON.parse(jsonStr);
+										console.log('🆔 Parsed message start:', data);
+										if (data.id) {
+											messageId = data.id;
+											console.log('🆔 Updated messageId to:', messageId);
+											// Send text-start event to AI SDK
+											console.log('🚀 Writing text-start event...');
+											writer.write({
+												type: 'text-start',
+												id: messageId,
+											});
+											console.log('✅ Text-start event sent!');
+										}
+									} catch (e) {
+										console.error('❌ Failed to parse message start:', e);
+									}
+								} else if (line.startsWith('2:')) {
+									// Final message - we can ignore this as we're streaming deltas
+									const jsonStr = line.substring(2);
+									console.log('📋 Final message JSON:', jsonStr);
+									console.log('⏭️ Skipping final message (using deltas instead)');
+									continue;
+								} else if (line.startsWith('e:')) {
+									// Finish event: e:{"finishReason":"stop","usage":{...}}
+									const jsonStr = line.substring(2);
+									console.log('🏁 Finish event JSON:', jsonStr);
+									try {
+										const data = JSON.parse(jsonStr);
+										console.log('🏁 Parsed finish data:', data);
+										// Write finish event to properly close the AI SDK stream
+										console.log('🏁 Writing finish event to AI SDK...');
+										writer.write({
+											type: 'finish',
+										});
+										console.log('✅ Finish event sent! Stream should be complete.');
+										console.log('📊 Final stats - Chunks:', chunkCount, 'Text deltas:', textDeltaCount);
+									} catch (e) {
+										console.error('❌ Failed to parse finish event:', e);
+										// Write a default finish event if parsing fails
+										console.log('🏁 Writing default finish event...');
+										writer.write({
+											type: 'finish',
+										});
+										console.log('✅ Default finish event sent!');
+									}
+								} else {
+									console.log('❓ Unknown line format:', JSON.stringify(line));
+								}
+							}
+						}
+					}
+				} catch (error) {
+					console.error('❌ Error in streaming:', error);
+					// Write error finish event
+					console.log('🏁 Writing error finish event...');
+					writer.write({
+						type: 'finish',
+					});
+					console.log('✅ Error finish event sent!');
+				}
+				console.log('🔚 Execute function completing, stream will auto-close');
+			},
+		});
 
-    const { longitude, latitude, city, country } = geolocation(request);
+		// Return the AI SDK compatible streaming response (correct format for useChat)
+		return new Response(
+			messageStream.pipeThrough(new JsonToSseTransformStream()),
+			{
+				status: 200,
+				headers: {
+					'Content-Type': 'text/event-stream',
+					'Cache-Control': 'no-cache',
+					'Connection': 'keep-alive',
+					'x-vercel-ai-data-stream': 'v1',
+				},
+			}
+		);
 
-    const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
-    };
-
-    await saveMessages({
-      messages: [
-        {
-          chatId: id,
-          id: message.id,
-          role: 'user',
-          parts: message.parts,
-          attachments: [],
-          createdAt: new Date(),
-        },
-      ],
-    });
-
-    const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
-
-    const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
-        const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
-          experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
-        });
-
-        result.consumeStream();
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-          }),
-        );
-      },
-      generateId: generateUUID,
-      onFinish: async ({ messages }) => {
-        await saveMessages({
-          messages: messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
-            createdAt: new Date(),
-            attachments: [],
-            chatId: id,
-          })),
-        });
-      },
-      onError: () => {
-        return 'Oops, an error occurred!';
-      },
-    });
-
-    const streamContext = getStreamContext();
-
-    if (streamContext) {
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream()),
-        ),
-      );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    }
-  } catch (error) {
-    if (error instanceof ChatSDKError) {
-      return error.toResponse();
-    }
-  }
-}
-
-export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-
-  if (!id) {
-    return new ChatSDKError('bad_request:api').toResponse();
-  }
-
-  const session = await auth();
-
-  if (!session?.user) {
-    return new ChatSDKError('unauthorized:chat').toResponse();
-  }
-
-  const chat = await getChatById({ id });
-
-  if (chat.userId !== session.user.id) {
-    return new ChatSDKError('forbidden:chat').toResponse();
-  }
-
-  const deletedChat = await deleteChatById({ id });
-
-  return Response.json(deletedChat, { status: 200 });
+	} catch (error) {
+		console.error('Chat API error:', error);
+		return new Response(
+			JSON.stringify({ error: 'Internal server error' }),
+			{
+				status: 500,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
 }

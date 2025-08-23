@@ -1,34 +1,36 @@
-import { auth } from '@/app/(auth)/auth';
-import type { NextRequest } from 'next/server';
-import { getChatsByUserId } from '@/lib/db/queries';
-import { ChatSDKError } from '@/lib/errors';
+// Proxy to Woolly Backend
+const WOOLLY_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
+export async function GET(request: Request) {
+  try {
+    // Proxy to Woolly backend
+    const response = await fetch(`${WOOLLY_BACKEND_URL}/api/chats`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-  const limit = Number.parseInt(searchParams.get('limit') || '10');
-  const startingAfter = searchParams.get('starting_after');
-  const endingBefore = searchParams.get('ending_before');
+    if (!response.ok) {
+      throw new Error(`Backend responded with ${response.status}`);
+    }
 
-  if (startingAfter && endingBefore) {
-    return new ChatSDKError(
-      'bad_request:api',
-      'Only one of starting_after or ending_before can be provided.',
-    ).toResponse();
+    const chats = await response.json();
+    
+    // Transform to expected pagination format
+    const paginatedResponse = {
+      chats: chats || [],
+      hasMore: false, // Since we're getting all chats at once
+    };
+    
+    return Response.json(paginatedResponse);
+
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    return new Response(
+      JSON.stringify({ 
+        chats: [], 
+        hasMore: false 
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   }
-
-  const session = await auth();
-
-  if (!session?.user) {
-    return new ChatSDKError('unauthorized:chat').toResponse();
-  }
-
-  const chats = await getChatsByUserId({
-    id: session.user.id,
-    limit,
-    startingAfter,
-    endingBefore,
-  });
-
-  return Response.json(chats);
 }

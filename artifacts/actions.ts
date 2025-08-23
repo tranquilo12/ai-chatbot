@@ -1,8 +1,7 @@
 'use server';
 
-import { getSuggestionsByDocumentId } from '@/lib/db/queries';
-
 export async function getSuggestions({ documentId }: { documentId: string }) {
-  const suggestions = await getSuggestionsByDocumentId({ documentId });
-  return suggestions ?? [];
+  // Disabled for now - let Woolly backend handle suggestions
+  console.log('getSuggestions called with documentId:', documentId);
+  return [];
 }

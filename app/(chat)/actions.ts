@@ -1,14 +1,8 @@
 'use server';
 
-import { generateText, type UIMessage } from 'ai';
 import { cookies } from 'next/headers';
-import {
-  deleteMessagesByChatIdAfterTimestamp,
-  getMessageById,
-  updateChatVisiblityById,
-} from '@/lib/db/queries';
+import type { UIMessage } from 'ai';
 import type { VisibilityType } from '@/components/visibility-selector';
-import { myProvider } from '@/lib/ai/providers';
 
 export async function saveChatModelAsCookie(model: string) {
   const cookieStore = await cookies();
@@ -20,26 +14,14 @@ export async function generateTitleFromUserMessage({
 }: {
   message: UIMessage;
 }) {
-  const { text: title } = await generateText({
-    model: myProvider.languageModel('title-model'),
-    system: `\n
-    - you will generate a short title based on the first message a user begins a conversation with
-    - ensure it is not more than 80 characters long
-    - the title should be a summary of the user's message
-    - do not use quotes or colons`,
-    prompt: JSON.stringify(message),
-  });
-
-  return title;
+  // Return a simple title for now - we'll let Woolly backend handle this
+  const text = message.parts?.find(part => part.type === 'text')?.text || 'New Chat';
+  return text.slice(0, 50) + (text.length > 50 ? '...' : '');
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
-  const [message] = await getMessageById({ id });
-
-  await deleteMessagesByChatIdAfterTimestamp({
-    chatId: message.chatId,
-    timestamp: message.createdAt,
-  });
+  // Disabled for now - let Woolly backend handle message management
+  console.log('deleteTrailingMessages called with id:', id);
 }
 
 export async function updateChatVisibility({
@@ -49,5 +31,6 @@ export async function updateChatVisibility({
   chatId: string;
   visibility: VisibilityType;
 }) {
-  await updateChatVisiblityById({ chatId, visibility });
+  // Disabled for now - let Woolly backend handle visibility
+  console.log('updateChatVisibility called:', { chatId, visibility });
 }
