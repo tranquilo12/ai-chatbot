@@ -12,4 +12,29 @@ export const guestRegex = /^guest-\d+$/;
 
 export const DUMMY_PASSWORD = generateDummyPassword();
 
-export const WOOLLY_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+// Validate and get the backend URL (lazy evaluation)
+let _cachedBackendUrl: string | null = null;
+
+export function getWoollyBackendUrl(): string {
+  if (_cachedBackendUrl !== null) {
+    return _cachedBackendUrl;
+  }
+  
+  const envUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  const defaultUrl = 'http://localhost:80';
+  
+  if (!envUrl) {
+    _cachedBackendUrl = defaultUrl;
+    return defaultUrl;
+  }
+  
+  try {
+    new URL(envUrl);
+    _cachedBackendUrl = envUrl;
+    return envUrl;
+  } catch (error) {
+    console.warn(`Invalid NEXT_PUBLIC_BACKEND_URL: ${envUrl}. Using default: ${defaultUrl}`);
+    _cachedBackendUrl = defaultUrl;
+    return defaultUrl;
+  }
+}

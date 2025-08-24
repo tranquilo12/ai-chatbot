@@ -22,7 +22,7 @@ export function useChatVisibility({
 
   const { data: localVisibility, mutate: setLocalVisibility } = useSWR(
     `${chatId}-visibility`,
-    null,
+    null, // No fetcher - this is local state only
     {
       fallbackData: initialVisibilityType,
     },

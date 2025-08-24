@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
 
 import { Chat } from '@/components/chat';
 import { DataStreamHandler } from '@/components/data-stream-handler';

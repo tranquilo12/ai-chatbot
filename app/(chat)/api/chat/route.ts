@@ -1,5 +1,5 @@
 // Proxy to Woolly Backend using AI SDK v5 createUIMessageStream (correct approach for useChat)
-import { WOOLLY_BACKEND_URL } from '@/lib/constants';
+import { getWoollyBackendUrl } from '@/lib/constants';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 			execute: async ({ writer }) => {
 				try {
 					// Proxy to Woolly backend
-					const response = await fetch(`${WOOLLY_BACKEND_URL}/api/chat/${chatId}`, {
+					const response = await fetch(`${getWoollyBackendUrl()}/api/chat/${chatId}`, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -187,6 +187,47 @@ export async function POST(request: Request) {
 		console.error('Chat API error:', error);
 		return new Response(
 			JSON.stringify({ error: 'Internal server error' }),
+			{
+				status: 500,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+}
+
+export async function DELETE(request: Request) {
+	try {
+		const { searchParams } = new URL(request.url);
+		const chatId = searchParams.get('id');
+
+		if (!chatId) {
+			return new Response(
+				JSON.stringify({ error: 'Chat ID is required' }),
+				{
+					status: 400,
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
+		}
+
+		// Import backend client here to avoid circular imports
+		const { backend } = await import('@/lib/api/backend-client');
+		
+		// Delete chat using backend client
+		await backend.chat.delete(chatId);
+
+		return new Response(
+			JSON.stringify({ success: true }),
+			{
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+
+	} catch (error) {
+		console.error('Chat delete error:', error);
+		return new Response(
+			JSON.stringify({ error: 'Failed to delete chat' }),
 			{
 				status: 500,
 				headers: { 'Content-Type': 'application/json' },

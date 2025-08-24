@@ -111,10 +111,9 @@ export function Chat({
     }
   }, [query, sendMessage, hasAppendedQuery, id]);
 
-  const { data: votes } = useSWR<Array<Vote>>(
-    messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
-    fetcher,
-  );
+  // TODO: Implement voting with Woolly backend when available
+  // Temporarily disabled since Woolly backend doesn't support voting yet
+  const votes: Array<Vote> = []; // Empty array to maintain component compatibility
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);

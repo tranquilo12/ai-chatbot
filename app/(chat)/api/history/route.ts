@@ -1,19 +1,9 @@
-// Proxy to Woolly Backend
-const WOOLLY_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost';
+import { backend } from '@/lib/api/backend-client';
 
 export async function GET(request: Request) {
   try {
-    // Proxy to Woolly backend
-    const response = await fetch(`${WOOLLY_BACKEND_URL}/api/chats`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend responded with ${response.status}`);
-    }
-
-    const chats = await response.json();
+    // Use backend client to fetch chats
+    const chats = await backend.chat.list();
     
     // Transform to expected pagination format
     const paginatedResponse = {

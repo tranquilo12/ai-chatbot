@@ -120,13 +120,22 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     : false;
 
   const handleDelete = async () => {
+    if (!deleteId) return;
+
     const deletePromise = fetch(`/api/chat?id=${deleteId}`, {
       method: 'DELETE',
+    }).then(async (response) => {
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+      return response.json();
     });
 
     toast.promise(deletePromise, {
       loading: 'Deleting chat...',
       success: () => {
+        // Optimistically update the cache
         mutate((chatHistories) => {
           if (chatHistories) {
             return chatHistories.map((chatHistory) => ({
@@ -134,15 +143,19 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
               chats: chatHistory.chats.filter((chat) => chat.id !== deleteId),
             }));
           }
-        });
+        }, false); // Don't revalidate immediately
 
         return 'Chat deleted successfully';
       },
-      error: 'Failed to delete chat',
+      error: (error) => {
+        console.error('Delete chat error:', error);
+        return error.message || 'Failed to delete chat';
+      },
     });
 
     setShowDeleteDialog(false);
 
+    // Navigate away if we're currently viewing the deleted chat
     if (deleteId === id) {
       router.push('/');
     }

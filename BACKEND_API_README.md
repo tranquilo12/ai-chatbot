@@ -1,67 +1,55 @@
-# 🚀 Woolly Backend API Documentation
+# Woolly Backend API
 
-## Overview
+A FastAPI-based backend for AI-powered code analysis and documentation generation with real-time streaming support.
 
-This is a comprehensive guide to the Woolly Backend API, a sophisticated FastAPI-based system designed for AI-powered code analysis and documentation generation. The backend features a modern architecture with streaming support, agent-based processing, and MCP (Model Context Protocol) integration.
+## Quick Start
 
-## 🏗️ Architecture
+### Prerequisites
 
-- **Framework**: FastAPI with async/await support
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **AI Integration**: OpenAI GPT models with Pydantic AI framework
-- **Agent System**: Universal agent factory pattern with specialized AI agents
-- **Streaming**: Real-time Server-Sent Events (SSE) compatible with Vercel AI SDK v4
-- **Tools**: Python code execution, MCP tool integration
+- Python 3.8+
+- PostgreSQL database
+- OpenAI API key
 
-## 🔧 Technology Stack
+### Environment Variables
 
-```
-FastAPI 0.115.11
-OpenAI 1.65.4
-Pydantic 2.10.6
-Pydantic AI 0.0.35
-SQLAlchemy 2.0.29
-PostgreSQL (psycopg2-binary)
-Alembic (database migrations)
+```env
+DATABASE_URL=postgresql://user:password@localhost/woolly
+OPENAI_API_KEY=your-openai-api-key
+MCP_SERVER_URL=http://localhost:8009/sse/
 ```
 
-## 📊 Core Data Models
+### Running the API
 
-### Chat System
+```bash
+# Install dependencies
+pip install -r api/requirements.txt
 
-- **Chat**: Conversation container with title, timestamps, and agent association
-- **Message**: Individual messages with role, content, tool invocations, and token counts
-- **Agent**: AI agent configurations with system prompts and tool access
+# Run database migrations
+alembic upgrade head
 
-### Agent System
+# Start the server
+uvicorn api.index:app --host 0.0.0.0 --port 8000 --reload
+```
 
-- **Universal Agents**: Standardized agent types (Simplifier, Tester, ConvoStarter, Summarizer, Documentation)
-- **Triage Agent**: Intelligent routing agent that selects appropriate specialist agents
-- **Tool Budget**: Resource management for agent execution
+## API Endpoints
 
----
-
-## 🚦 API Endpoints
-
-### Health & Status
+### Health Check
 
 #### `GET /api/health`
 
-Basic health check endpoint for Docker health monitoring.
+Basic health check endpoint.
 
 **Response:**
 
 ```json
-{
-  "status": "healthy"
-}
+{ "status": "healthy" }
 ```
 
 ---
 
-## 💬 Chat Management
+## Chat Management
 
-### Chat CRUD Operations
+### Create Chat
 
 #### `POST /api/chat/create`
 
@@ -74,10 +62,10 @@ Create a new chat session.
 **Response:**
 
 ```json
-{
-  "id": "uuid-string"
-}
+{ "id": "uuid-string" }
 ```
+
+### List Chats
 
 #### `GET /api/chats`
 
@@ -96,6 +84,8 @@ Retrieve all chat sessions ordered by last updated.
 ]
 ```
 
+### Delete Chat
+
 #### `DELETE /api/chat/{chat_id}`
 
 Delete a chat and all its messages.
@@ -103,12 +93,10 @@ Delete a chat and all its messages.
 **Response:**
 
 ```json
-{
-  "success": true
-}
+{ "success": true }
 ```
 
-### Chat Title Management
+### Update Chat Title
 
 #### `PATCH /api/chat/{chat_id}/title`
 
@@ -117,25 +105,20 @@ Update chat title.
 **Request Body:**
 
 ```json
-{
-  "title": "New Chat Title"
-}
+{ "title": "New Chat Title" }
 ```
 
 **Response:**
 
 ```json
-{
-  "success": true,
-  "title": "New Chat Title"
-}
+{ "success": true, "title": "New Chat Title" }
 ```
 
 ---
 
-## 📝 Message Management
+## Messages
 
-### Message Operations
+### Get Messages
 
 #### `GET /api/chat/{chat_id}/messages`
 
@@ -160,6 +143,8 @@ Get all messages for a chat (excludes agent messages).
 ]
 ```
 
+### Create Message
+
 #### `POST /api/chat/{chat_id}/messages`
 
 Create a new message in a chat.
@@ -177,6 +162,8 @@ Create a new message in a chat.
 }
 ```
 
+### Edit Message
+
 #### `PATCH /api/chat/{chat_id}/messages/{message_id}`
 
 Edit a message and remove all subsequent messages.
@@ -184,10 +171,10 @@ Edit a message and remove all subsequent messages.
 **Request Body:**
 
 ```json
-{
-  "content": "Updated message content"
-}
+{ "content": "Updated message content" }
 ```
+
+### Delete Message
 
 #### `DELETE /api/chat/{chat_id}/messages/{message_id}`
 
@@ -196,12 +183,10 @@ Delete a specific message.
 **Response:**
 
 ```json
-{
-  "success": true
-}
+{ "success": true }
 ```
 
-### Model Updates
+### Update Message Model
 
 #### `PATCH /api/chat/{chat_id}/messages/{message_id}/model`
 
@@ -210,14 +195,12 @@ Update the AI model used for a message.
 **Request Body:**
 
 ```json
-{
-  "model": "gpt-4o"
-}
+{ "model": "gpt-4o" }
 ```
 
 ---
 
-## 🤖 Chat Interaction (Streaming)
+## Chat Interaction (Streaming)
 
 ### Main Chat Endpoint
 
@@ -253,12 +236,7 @@ Main chat endpoint with streaming response support.
 }
 ```
 
-**Response:** Streaming response with Vercel AI SDK v4 compatible format:
-
-- Text chunks: `0:"text content"`
-- Tool calls: `9:{"toolCallId":"id","toolName":"name","args":{},"state":"partial-call"}`
-- Tool results: `a:{"toolCallId":"id","result":{},"state":"result"}`
-- End stream: `e:{"finishReason":"stop","usage":{"promptTokens":100,"completionTokens":200}}`
+**Response:** Streaming response compatible with AI SDK V5
 
 ### Legacy Chat Endpoint
 
@@ -270,9 +248,9 @@ Legacy endpoint for backward compatibility.
 
 ---
 
-## 🧠 Agent Management
+## Agent Management
 
-### Agent CRUD Operations
+### Create Agent
 
 #### `POST /api/agents`
 
@@ -305,6 +283,8 @@ Create a new AI agent.
 }
 ```
 
+### List Agents
+
 #### `GET /api/agents`
 
 List all agents with optional filtering.
@@ -314,9 +294,13 @@ List all agents with optional filtering.
 - `repository` (optional): Filter by repository
 - `type` (optional): Filter by agent type
 
+### Get Agent
+
 #### `GET /api/agents/{agent_id}`
 
 Get a specific agent by ID.
+
+### Update Agent
 
 #### `PATCH /api/agents/{agent_id}`
 
@@ -333,6 +317,8 @@ Update an agent.
   "is_active": true
 }
 ```
+
+### Delete Agent
 
 #### `DELETE /api/agents/{agent_id}`
 
@@ -361,9 +347,9 @@ Health check for the agent system.
 
 ---
 
-## 🌟 Universal Agent System
+## Universal Agent System
 
-### Agent Execution
+### Execute Multiple Agents
 
 #### `POST /api/v1/agents/execute`
 
@@ -411,21 +397,17 @@ Execute multiple agents in parallel or background.
 }
 ```
 
+### Execute Agents with Streaming
+
 #### `POST /api/v1/agents/execute/streaming`
 
 Execute agents with real-time streaming.
 
 **Request Body:** Same as above
 
-**Response:** Server-Sent Events stream:
+**Response:** Streaming response with real-time agent results
 
-```
-data: {"status": "started", "agent_count": 4}
-
-data: {"type": "agent_stream", "agent_type": "simplifier", "data": {...}}
-
-data: {"status": "all_completed"}
-```
+### Execute Single Agent
 
 #### `POST /api/v1/agents/execute/single`
 
@@ -466,15 +448,6 @@ Get status of background agent session.
 #### `DELETE /api/v1/agents/session/{session_id}`
 
 Cancel background agent session.
-
-**Response:**
-
-```json
-{
-  "status": "cancelled",
-  "session_id": "session-uuid"
-}
-```
 
 ### Task Management
 
@@ -562,29 +535,15 @@ Test MCP server connection.
 
 Get error statistics for monitoring.
 
-**Response:**
-
-```json
-{
-  "total_errors": 5,
-  "error_types": {
-    "connection_timeout": 3,
-    "tool_execution_failed": 2
-  },
-  "recovery_rate": 0.8,
-  "last_error": "2024-01-01T00:00:00Z"
-}
-```
-
 #### `POST /api/v1/agents/errors/reset`
 
 Reset error statistics.
 
 ---
 
-## 🎯 Triage Agent System
+## Triage Agent System
 
-### Triage Analysis
+### Analyze Query
 
 #### `POST /api/v1/triage/analyze`
 
@@ -613,6 +572,8 @@ Analyze a query without executing agents.
   "direct_response": null
 }
 ```
+
+### Execute Triage
 
 #### `POST /api/v1/triage/execute`
 
@@ -645,23 +606,13 @@ Execute triage analysis and run appropriate agents.
 }
 ```
 
+### Execute Triage with Streaming
+
 #### `POST /api/v1/triage/execute/streaming`
 
 Execute triage with streaming response.
 
-**Response:** Server-Sent Events:
-
-```
-data: {"type": "analysis_start", "message": "Analyzing query..."}
-
-data: {"type": "triage_decision", "decision": "single_agent", "reasoning": "...", "confidence": 0.85}
-
-data: {"type": "agent_start", "agent": "documentation"}
-
-data: {"type": "agent_result", "agent": "documentation", "content": "..."}
-
-data: {"type": "complete"}
-```
+**Response:** Streaming response with triage decisions and agent results
 
 ### Triage System Status
 
@@ -691,75 +642,11 @@ Triage system health check.
 
 Get triage system statistics.
 
-**Response:**
-
-```json
-{
-  "total_queries": 150,
-  "decisions_by_type": {
-    "single_agent": 80,
-    "multi_agent": 60,
-    "direct_response": 10
-  },
-  "average_confidence": 0.82,
-  "average_execution_time": 4.5,
-  "most_used_agents": ["documentation", "simplifier"],
-  "timestamp": "2024-01-01T00:00:00Z"
-}
-```
-
 ---
 
-## 🔄 Streaming POC Endpoints
+## Agent Messages
 
-### Streaming Demo
-
-#### `POST /api/streaming/mock`
-
-Mock streaming endpoint for testing Vercel AI SDK v4 compatibility.
-
-**Request Body:**
-
-```json
-{
-  "prompt": "authentication system"
-}
-```
-
-**Response:** Server-Sent Events with mock tool calls and text streaming
-
-#### `GET /api/streaming/test`
-
-Test SSE format validation.
-
-**Response:**
-
-```json
-{
-  "example_events": [
-    { "type": "text", "delta": "Hello" },
-    {
-      "type": "toolCall",
-      "id": "test_1",
-      "name": "test_tool",
-      "args": { "param": "value" }
-    },
-    {
-      "type": "toolResult",
-      "id": "test_1",
-      "result": "Tool executed successfully"
-    },
-    { "type": "done" }
-  ],
-  "sse_format_example": "data: {\"type\": \"text\", \"delta\": \"Hello\"}\\n\\n"
-}
-```
-
----
-
-## 📊 Agent Message System
-
-### Agent Message Operations
+### Get Agent Messages
 
 #### `GET /api/chat/{chat_id}/agent/messages`
 
@@ -771,6 +658,8 @@ Get agent messages for a chat with filtering.
 - `repository` (optional): Filter by repository
 - `message_type` (optional): Filter by message type
 - `pipeline_id` (optional): Filter by pipeline ID
+
+### Create Agent Message
 
 #### `POST /api/chat/{chat_id}/agent/messages`
 
@@ -796,29 +685,31 @@ Create a new agent message.
 
 ---
 
-## 📋 Documentation Endpoints
+## Streaming Demo
 
-### System Prompts
+### Mock Streaming
 
-#### `GET /api/docs_system_prompt.txt`
+#### `POST /api/streaming/mock`
 
-Get the documentation system prompt template.
+Mock streaming endpoint for testing AI SDK V5 compatibility.
 
-### Legacy Documentation (Deprecated)
+**Request Body:**
 
-#### `GET /strategies`
+```json
+{ "prompt": "authentication system" }
+```
 
-List available documentation strategies (legacy).
+**Response:** Streaming response with mock tool calls and text
 
-#### `GET /strategies/{strategy_name}`
+### Test Streaming Format
 
-Get strategy details (legacy).
+#### `GET /api/streaming/test`
 
-**Note:** These endpoints are deprecated. Use the Universal Agent System instead.
+Test endpoint showing streaming format examples and validation.
 
 ---
 
-## 🛠️ Available Tools
+## Available Tools
 
 ### Python Code Execution
 
@@ -838,109 +729,188 @@ Get strategy details (legacy).
 
 ---
 
-## 🔐 Authentication & Security
+## Testing the API
 
-The API currently operates without authentication for development purposes. In production, implement:
+### Comprehensive Test Suite
 
-- JWT token authentication
-- Role-based access control
-- Rate limiting
-- Input validation and sanitization
-
----
-
-## ⚡ Performance Considerations
-
-### Streaming Support
-
-- All chat endpoints support real-time streaming
-- Compatible with Vercel AI SDK v4
-- Server-Sent Events (SSE) protocol
-- Automatic token usage tracking
-
-### Resource Management
-
-- Tool budget system for agent execution
-- Background task processing
-- Session management for long-running operations
-- Automatic cleanup of completed tasks
-
-### Database Optimization
-
-- Indexed queries for chat and message retrieval
-- Proper foreign key relationships
-- Efficient message grouping and filtering
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-1. Python 3.8+
-2. PostgreSQL database
-3. OpenAI API key
-4. MCP server running (optional but recommended)
-
-### Environment Variables
-
-```env
-DATABASE_URL=postgresql://user:password@localhost/woolly
-OPENAI_API_KEY=your-openai-api-key
-MCP_SERVER_URL=http://localhost:8009/sse/
-```
-
-### Running the API
+A complete test script is available that validates all API endpoints:
 
 ```bash
-# Install dependencies
-pip install -r api/requirements.txt
-
-# Run database migrations
-alembic upgrade head
-
-# Start the server
-uvicorn api.index:app --host 0.0.0.0 --port 8000 --reload
+# Run the complete test suite
+./test-api-endpoints.sh
 ```
 
-### Testing the API
+This script tests:
+
+- All health check endpoints
+- Chat and message CRUD operations
+- Agent management operations
+- Universal agent system endpoints
+- Triage system endpoints
+- Streaming functionality
+- Error handling and diagnostics
+
+### Manual Testing Examples
 
 ```bash
 # Health check
-curl http://localhost:8000/api/health
+curl http://localhost/api/health
 
 # Create a chat
-curl -X POST http://localhost:8000/api/chat/create
+curl -X POST http://localhost/api/chat/create
 
-# Test streaming
-curl -X POST http://localhost:8000/api/streaming/mock \
+# Test streaming (working)
+curl -X POST http://localhost/api/streaming/mock \
   -H "Content-Type: application/json" \
   -d '{"prompt": "test"}' \
   --no-buffer
+
+# Test agent types (working)
+curl http://localhost/api/v1/agents/types
+
+# Test MCP connection status
+curl http://localhost/api/v1/agents/mcp/test
+```
+
+### Current API Status
+
+#### ✅ **Fully Working Endpoints**
+
+- **Health Checks**: All system health endpoints operational
+- **Chat Management**: Create, read, update, delete chats
+- **Message Management**: Full CRUD operations for messages
+- **Agent Management**: Complete agent CRUD functionality
+- **System Information**: Agent types, health status, MCP testing
+- **Streaming Demo**: Mock streaming with AI SDK V5 format
+- **Basic Streaming**: Single agent streaming initiation
+
+#### ⚠️ **Known Issues**
+
+- **Agent Execution**: Some agent execution endpoints return 500 errors
+- **MCP Dependency**: Agent execution requires MCP server on `localhost:8009`
+- **Async Tasks**: Some background task operations need debugging
+
+#### 🔧 **Dependencies**
+
+- **MCP Server**: Required for full agent functionality
+- **PostgreSQL**: Database must be running and migrated
+- **OpenAI API**: Required for AI model interactions
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Agent Execution Errors (500 Internal Server Error)
+
+**Problem**: Agent execution endpoints return 500 errors
+**Cause**: MCP server not running or connection issues
+**Solution**:
+
+```bash
+# Check if MCP server is running
+curl http://localhost:8009/sse/
+
+# Test MCP connection through API
+curl http://localhost/api/v1/agents/mcp/test
+```
+
+#### Database Connection Issues
+
+**Problem**: Database-related errors
+**Solution**:
+
+```bash
+# Check database connection
+psql $DATABASE_URL -c "SELECT 1;"
+
+# Run migrations if needed
+alembic upgrade head
+```
+
+#### OpenAI API Issues
+
+**Problem**: AI model execution fails
+**Solution**:
+
+```bash
+# Verify API key is set
+echo $OPENAI_API_KEY
+
+# Test API key validity
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+### Running the Test Suite
+
+The test script provides detailed output about which endpoints are working:
+
+```bash
+# Run with verbose output
+./test-api-endpoints.sh
+
+# Check specific endpoint manually
+curl -v http://localhost/api/v1/agents/health
+```
+
+### Expected Test Results
+
+- ✅ **Health checks**: Should all return 200 OK
+- ✅ **CRUD operations**: Chat, message, and agent operations should work
+- ✅ **Streaming demo**: Mock streaming should show V5 format
+- ⚠️ **Agent execution**: May fail if MCP server unavailable
+- ⚠️ **Triage system**: Depends on agent execution functionality
+
+---
+
+## Error Handling
+
+The API uses standard HTTP status codes:
+
+- `200`: Success
+- `400`: Bad Request
+- `404`: Not Found
+- `409`: Conflict (e.g., duplicate agent name)
+- `500`: Internal Server Error
+
+All error responses include a `detail` field with a descriptive error message.
+
+### Error Response Format
+
+```json
+{
+  "detail": "Descriptive error message explaining what went wrong"
+}
 ```
 
 ---
 
-## 📈 Monitoring & Debugging
+## Notes
 
-### Health Checks
+### API Status
 
-- Main API: `/api/health`
-- Agent System: `/api/v1/agents/health`
-- Triage System: `/api/v1/triage/health`
+- **Core functionality**: All basic CRUD operations are fully functional
+- **Streaming support**: Real-time responses compatible with AI SDK V5 format
+- **Authentication**: Currently operates without authentication in development mode
+- **Agent system**: Basic agent management works; execution depends on MCP server availability
 
-### Error Tracking
+### Testing
 
-- Error statistics: `/api/v1/agents/errors/statistics`
-- Session status: `/api/v1/agents/session/{session_id}`
-- Task status: `/api/v1/agents/task/{task_id}`
+- **Comprehensive test suite**: Use `./test-api-endpoints.sh` to validate all endpoints
+- **Automated validation**: Script tests all documented endpoints and provides status reports
+- **Error identification**: Test suite clearly identifies which endpoints are working vs. failing
 
-### Logging
+### Architecture
 
-- Structured logging with Python logging module
-- Request/response logging for debugging
-- Tool execution logging for performance analysis
+- **Agent messages**: Separate from regular chat messages and can be filtered independently
+- **Background processing**: Session tracking available for long-running operations
+- **Intelligent routing**: Triage system routes queries to appropriate specialist agents
+- **Modular design**: Core API functionality independent of agent execution layer
 
----
+### Development
 
-This comprehensive API provides a robust foundation for building AI-powered frontend applications with real-time streaming, intelligent agent routing, and sophisticated code analysis capabilities.
+- **MCP dependency**: Full agent functionality requires MCP server on port 8009
+- **Database migrations**: Use Alembic for schema management
+- **Environment setup**: Requires PostgreSQL, OpenAI API key, and optional MCP server

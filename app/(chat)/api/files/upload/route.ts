@@ -24,6 +24,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // TODO: Implement file upload with Woolly backend
+  // Temporarily disabled to prevent build issues with Vercel Blob
+  return NextResponse.json(
+    { error: 'File upload temporarily disabled during backend migration' },
+    { status: 501 }
+  );
+
+  /* Original implementation - disabled for now
   if (request.body === null) {
     return new Response('Request body is empty', { status: 400 });
   }
@@ -65,4 +73,5 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+  */
 }

@@ -8,7 +8,8 @@ import type { Chat } from '@/lib/db/schema';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
-import { getStreamContext } from '../../route';
+// TODO: Fix getStreamContext import - function doesn't exist in route.ts
+// import { getStreamContext } from '../../route';
 import { differenceInSeconds } from 'date-fns';
 
 export async function GET(
@@ -17,7 +18,8 @@ export async function GET(
 ) {
   const { id: chatId } = await params;
 
-  const streamContext = getStreamContext();
+  // TODO: Implement proper stream context handling
+  const streamContext = null; // getStreamContext();
   const resumeRequestedAt = new Date();
 
   if (!streamContext) {
@@ -66,9 +68,10 @@ export async function GET(
     execute: () => {},
   });
 
-  const stream = await streamContext.resumableStream(recentStreamId, () =>
-    emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
-  );
+  // TODO: Implement proper resumable stream handling
+  const stream = null; // await streamContext.resumableStream(recentStreamId, () =>
+    // emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+  // );
 
   /*
    * For when the generation is streaming during SSR
