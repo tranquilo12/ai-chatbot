@@ -14,11 +14,11 @@ export async function POST(request: Request) {
 
     // Generate a proper message ID for the assistant response
     const messageId = generateId();
-    
+
     // Use the WoollyStreamAdapter to create a properly formatted AI SDK stream
     const stream = await WoollyStreamAdapter.createMessageStream(chatId, message, { messageId });
-    
-    const response = createUIMessageStreamResponse({ 
+
+    const response = createUIMessageStreamResponse({
       stream,
       headers: {
         'Content-Encoding': 'none',
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
         'x-vercel-ai-ui-message-stream': 'v1', // Critical for AI SDK UI message stream
       }
     });
-    
+
     return response;
   } catch (error) {
     return ErrorHandler.toResponse(error);
@@ -35,22 +35,22 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-	try {
-		const { searchParams } = new URL(request.url);
-		const chatId = searchParams.get('id');
+  try {
+    const { searchParams } = new URL(request.url);
+    const chatId = searchParams.get('id');
 
-		if (!chatId) {
-			throw new Error('Chat ID is required');
-		}
+    if (!chatId) {
+      throw new Error('Chat ID is required');
+    }
 
-		await backend.chat.delete(chatId);
-		
-		return new Response(JSON.stringify({ success: true }), { 
-			status: 200,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	} catch (error) {
-		console.error('❌ Error deleting chat:', error);
-		return ErrorHandler.toResponse(error);
-	}
+    await backend.chat.delete(chatId);
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('❌ Error deleting chat:', error);
+    return ErrorHandler.toResponse(error);
+  }
 }

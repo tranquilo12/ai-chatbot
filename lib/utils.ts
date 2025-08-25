@@ -1,6 +1,4 @@
 import type {
-  CoreAssistantMessage,
-  CoreToolMessage,
   UIMessage,
   UIMessagePart,
 } from 'ai';
@@ -63,9 +61,6 @@ export function generateUUID(): string {
   });
 }
 
-type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
-type ResponseMessage = ResponseMessageWithoutId & { id: string };
-
 export function getMostRecentUserMessage(messages: Array<UIMessage>) {
   const userMessages = messages.filter((message) => message.role === 'user');
   return userMessages.at(-1);
@@ -84,7 +79,7 @@ export function getDocumentTimestampByIndex(
 export function getTrailingMessageId({
   messages,
 }: {
-  messages: Array<ResponseMessage>;
+  messages: Array<ChatMessage>;
 }): string | null {
   const trailingMessage = messages.at(-1);
 

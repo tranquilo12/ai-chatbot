@@ -44,11 +44,8 @@ export type CustomUIDataTypes = {
   finish: null;
 };
 
-export type ChatMessage = UIMessage<
-  MessageMetadata,
-  CustomUIDataTypes,
-  ChatTools
->;
+// Use the standard UIMessage type with our custom metadata
+export type ChatMessage = UIMessage<MessageMetadata>;
 
 export interface Attachment {
   name: string;

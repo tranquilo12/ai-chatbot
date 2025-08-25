@@ -1,18 +1,32 @@
-import { createUIMessageStream } from 'ai';
+import { createUIMessageStream, UIMessageChunk } from 'ai';
 import { getWoollyBackendUrl } from '../constants';
 import type { ChatMessage } from '@/lib/types';
 import { MessageTransforms } from '../message-transforms';
 import { ErrorHandler } from '../error-handler';
 
+type MessageMetadata = {
+  id: string;
+  role: string;
+  parts: { type: string; text: string }[];
+  createdAt: string;
+};
+
+type FinishMetadata = {
+  finishReason: string;
+  usage: { promptTokens: number, completionTokens: number, totalTokens: number };
+  isContinued: boolean;
+};
+
+
 // Add constants for the write types
 const STREAM_PARTS = {
   START: (messageId: string) => ({
     type: 'start' as const,
-    messageId: messageId,
+    messageId,
   }),
   TEXT_START: (id: string) => ({
     type: 'text-start' as const,
-    id: id,
+    id,
   }),
   TEXT_DELTA: (id: string, delta: string) => ({
     type: 'text-delta' as const,
@@ -23,15 +37,15 @@ const STREAM_PARTS = {
     type: 'text-end' as const,
     id: id,
   }),
-  FINISH: (messageMetadata?: { createdAt: string }) => ({
-    type: 'finish' as const,
-    messageMetadata: messageMetadata,
-  }),
   ERROR: (errorText: string) => ({
     type: 'error' as const,
     errorText: errorText,
   }),
-} as const;
+  MESSAGE_METADATA: (messageMetadata: MessageMetadata) => ({
+    type: 'message-metadata' as const,
+    messageMetadata: messageMetadata,
+  }),
+} as const satisfies Record<string, (...args: any[]) => UIMessageChunk<MessageMetadata>>;
 
 
 export class WoollyStreamAdapter {
@@ -65,12 +79,6 @@ export class WoollyStreamAdapter {
           const decoder = new TextDecoder();
           let buffer = '';
           let messageId: string = '';
-          // const messageId = options.messageId || crypto.randomUUID();
-
-          // Send message start event first
-
-          // Send initial text start event
-          // writer.write(STREAM_PARTS.TEXT_START(messageId));
 
           while (true) {
             const { done, value } = await reader.read();
@@ -84,14 +92,17 @@ export class WoollyStreamAdapter {
 
               if (line.trim() && line.startsWith('1:')) {
                 // Handle message start event if needed, e.g., extract message ID
-                const data: { id: string; role: string, parts: { type: string; text: string }[] } = JSON.parse(line.substring(2));
+                const data: MessageMetadata = JSON.parse(line.substring(2));
                 messageId = data.id;
                 writer.write(STREAM_PARTS.START(messageId));
+                writer.write(STREAM_PARTS.MESSAGE_METADATA(data));
                 writer.write(STREAM_PARTS.TEXT_START(messageId));
               }
               else if (line.trim() && line.startsWith('0:')) {
                 const data: { type: string; text: string } = JSON.parse(line.substring(2));
+                console.log('📝 Data:', data);
                 if (data.type === 'text' && data.text) {
+                  console.log('📝 Writing text delta:', data.text);
                   writer.write(STREAM_PARTS.TEXT_DELTA(messageId, data.text));
                   options.onProgress?.(data.text);
                 }
@@ -101,8 +112,8 @@ export class WoollyStreamAdapter {
                 writer.write(STREAM_PARTS.TEXT_END(messageId));
               } else if (line.trim() && line.startsWith('e:')) {
                 // Handle finish event - send completion event
-                // const data: { finishReason: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number }, isContinued: boolean } = JSON.parse(line.substring(2));
-                writer.write(STREAM_PARTS.FINISH({ createdAt: new Date().toISOString() }));
+                const data: FinishMetadata = JSON.parse(line.substring(2));
+                writer.write({ type: 'finish', messageMetadata: { ...data, createdAt: new Date().toISOString() } });
                 break;
               }
             }

@@ -6,11 +6,10 @@ import {
   artifactKinds,
   documentHandlersByArtifactKind,
 } from '@/lib/artifacts/server';
-import type { ChatMessage } from '@/lib/types';
 
 interface CreateDocumentProps {
   session: Session;
-  dataStream: UIMessageStreamWriter<ChatMessage>;
+  dataStream: UIMessageStreamWriter;
 }
 
 export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>

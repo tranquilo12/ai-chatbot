@@ -96,6 +96,8 @@ function areEqual(
   }
 
   if (prevProps.status !== nextProps.status) return false;
+  // Force updates while streaming so deltas show incrementally
+  if (nextProps.status === 'streaming') return false;
   if (prevProps.messages.length !== nextProps.messages.length) return false;
   if (!equal(prevProps.messages, nextProps.messages)) return false;
   if (!equal(prevProps.votes, nextProps.votes)) return false;
