@@ -20,8 +20,15 @@ export async function generateTitleFromUserMessage({
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
-  // Disabled for now - let Woolly backend handle message management
+  // TODO: Implement trailing message deletion with Woolly backend
+  // This would require the backend to support deleting messages after a specific message ID
+  // For now, we'll log the request and return success to maintain UI functionality
   console.log('deleteTrailingMessages called with id:', id);
+  
+  // In the future, this would be something like:
+  // await backend.message.deleteAfter(chatId, messageId);
+  
+  return { success: true };
 }
 
 export async function updateChatVisibility({

@@ -1,0 +1,148 @@
+import type { ChatMessage } from '@/lib/types';
+
+// Backend message types (based on BACKEND_API_README.md)
+export interface BackendMessage {
+  id: string;
+  chat_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  model?: string;
+  created_at: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  tool_invocations?: any[];
+}
+
+export interface BackendMessageRequest {
+  role: 'user' | 'assistant';
+  content: string;
+  id?: string;
+  tool_invocations?: any[];
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
+export interface BackendChatRequest {
+  messages: BackendMessageRequest[];
+  model: string;
+  agent_id?: string;
+}
+
+/**
+ * Unified message transformation utilities
+ * Eliminates duplication across the codebase for message format conversion
+ */
+export class MessageTransforms {
+  /**
+   * Convert frontend ChatMessage to backend message format
+   * Replaces scattered parts.find() logic throughout the codebase
+   */
+  static toBackendMessage(message: ChatMessage): BackendMessageRequest {
+    // Backend only supports 'user' and 'assistant' roles
+    const role = message.role === 'system' ? 'assistant' : message.role as 'user' | 'assistant';
+    
+    return {
+      role,
+      content: this.extractTextContent(message),
+      id: message.id,
+      // tool_invocations: [], // TODO: Add when AI SDK supports it
+    };
+  }
+
+  /**
+   * Convert backend message to frontend ChatMessage format
+   * Replaces convertToUIMessages() logic in lib/utils.ts
+   */
+  static fromBackendMessage(backendMessage: BackendMessage): ChatMessage {
+    return {
+      id: backendMessage.id,
+      role: backendMessage.role,
+      parts: [{ type: "text", text: backendMessage.content }],
+      // toolInvocations: backendMessage.tool_invocations || [], // TODO: Add when AI SDK supports it
+    } as ChatMessage;
+  }
+
+  /**
+   * Extract text content from ChatMessage parts
+   * Replaces getTextFromMessage() logic in lib/utils.ts
+   */
+  static extractTextContent(message: ChatMessage): string {
+    return message.parts?.find((part) => part.type === "text")?.text || "";
+  }
+
+  /**
+   * Prepare multiple messages for backend API request
+   * Replaces prepareSendMessagesRequest logic in components/chat.tsx
+   */
+  static prepareMessagesForBackend(
+    messages: ChatMessage[]
+  ): BackendMessageRequest[] {
+    return messages.map((msg) => this.toBackendMessage(msg));
+  }
+
+  /**
+   * Create a backend chat request from frontend data
+   * Unifies the request format used in API routes
+   */
+  static createChatRequest(
+    messages: ChatMessage[],
+    model: string = 'gpt-4o',
+    agentId?: string
+  ): BackendChatRequest {
+    return {
+      messages: this.prepareMessagesForBackend(messages),
+      model,
+      ...(agentId && { agent_id: agentId }),
+    };
+  }
+
+  /**
+   * Convert multiple backend messages to frontend format
+   * Batch conversion utility
+   */
+  static fromBackendMessages(backendMessages: BackendMessage[]): ChatMessage[] {
+    return backendMessages.map((msg) => this.fromBackendMessage(msg));
+  }
+
+  /**
+   * Extract the last message from a messages array
+   * Common pattern used in chat components
+   */
+  static getLastMessage(messages: ChatMessage[]): ChatMessage | undefined {
+    return messages.at(-1);
+  }
+
+  /**
+   * Check if a message has text content
+   * Utility for validation
+   */
+  static hasTextContent(message: ChatMessage): boolean {
+    return this.extractTextContent(message).trim().length > 0;
+  }
+
+  /**
+   * Create a user message from text input
+   * Utility for creating messages from user input
+   */
+  static createUserMessage(text: string, id?: string): ChatMessage {
+    return {
+      id: id || crypto.randomUUID(),
+      role: 'user',
+      parts: [{ type: 'text', text }],
+      // createdAt: new Date(), // TODO: Add when AI SDK supports it
+    } as ChatMessage;
+  }
+
+  /**
+   * Update message content while preserving other properties
+   * Utility for message editing
+   */
+  static updateMessageContent(message: ChatMessage, newContent: string): ChatMessage {
+    return {
+      ...message,
+      parts: [{ type: 'text', text: newContent }],
+    };
+  }
+}

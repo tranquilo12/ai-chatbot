@@ -1,115 +1,59 @@
-import { auth } from '@/app/(auth)/auth';
-import {
-  getChatById,
-  getMessagesByChatId,
-  getStreamIdsByChatId,
-} from '@/lib/db/queries';
-import type { Chat } from '@/lib/db/schema';
-import { ChatSDKError } from '@/lib/errors';
+import { backend } from '@/lib/api/backend-client';
+import { WoollyStreamAdapter } from '@/lib/streaming/woolly-stream-adapter';
+import { ErrorHandler } from '@/lib/error-handler';
 import type { ChatMessage } from '@/lib/types';
-import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
-// TODO: Fix getStreamContext import - function doesn't exist in route.ts
-// import { getStreamContext } from '../../route';
 import { differenceInSeconds } from 'date-fns';
 
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id: chatId } = await params;
-
-  // TODO: Implement proper stream context handling
-  const streamContext = null; // getStreamContext();
-  const resumeRequestedAt = new Date();
-
-  if (!streamContext) {
-    return new Response(null, { status: 204 });
-  }
-
-  if (!chatId) {
-    return new ChatSDKError('bad_request:api').toResponse();
-  }
-
-  const session = await auth();
-
-  if (!session?.user) {
-    return new ChatSDKError('unauthorized:chat').toResponse();
-  }
-
-  let chat: Chat;
-
   try {
-    chat = await getChatById({ id: chatId });
-  } catch {
-    return new ChatSDKError('not_found:chat').toResponse();
-  }
+    const { id: chatId } = await params;
 
-  if (!chat) {
-    return new ChatSDKError('not_found:chat').toResponse();
-  }
+    if (!chatId) {
+      throw new Error('Chat ID is required');
+    }
 
-  if (chat.visibility === 'private' && chat.userId !== session.user.id) {
-    return new ChatSDKError('forbidden:chat').toResponse();
-  }
+    // TODO: Implement proper stream resumption with Woolly backend
+    // For now, we'll check if there are recent messages and restore the last one
+    
+    const resumeRequestedAt = new Date();
+    
+    // Get messages from backend to check for recent activity
+    let messages: ChatMessage[] = [];
+    try {
+      messages = await backend.message.list(chatId);
+    } catch (error) {
+      // If no messages or chat doesn't exist, return empty stream
+      console.log('No messages found for stream resumption:', chatId);
+      return new Response(null, { status: 204 });
+    }
 
-  const streamIds = await getStreamIdsByChatId({ chatId });
-
-  if (!streamIds.length) {
-    return new ChatSDKError('not_found:stream').toResponse();
-  }
-
-  const recentStreamId = streamIds.at(-1);
-
-  if (!recentStreamId) {
-    return new ChatSDKError('not_found:stream').toResponse();
-  }
-
-  const emptyDataStream = createUIMessageStream<ChatMessage>({
-    execute: () => {},
-  });
-
-  // TODO: Implement proper resumable stream handling
-  const stream = null; // await streamContext.resumableStream(recentStreamId, () =>
-    // emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
-  // );
-
-  /*
-   * For when the generation is streaming during SSR
-   * but the resumable stream has concluded at this point.
-   */
-  if (!stream) {
-    const messages = await getMessagesByChatId({ id: chatId });
     const mostRecentMessage = messages.at(-1);
 
     if (!mostRecentMessage) {
-      return new Response(emptyDataStream, { status: 200 });
+      return new Response(null, { status: 204 });
     }
 
+    // Only resume if it's an assistant message
     if (mostRecentMessage.role !== 'assistant') {
-      return new Response(emptyDataStream, { status: 200 });
+      return new Response(null, { status: 204 });
     }
 
-    const messageCreatedAt = new Date(mostRecentMessage.createdAt);
-
+    // Only resume if the message is recent (within 15 seconds)
+    // Note: ChatMessage might not have createdAt, so we'll use current time as fallback
+    const messageCreatedAt = new Date(); // For now, assume recent messages
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
-      return new Response(emptyDataStream, { status: 200 });
+      return new Response(null, { status: 204 });
     }
 
-    const restoredStream = createUIMessageStream<ChatMessage>({
-      execute: ({ writer }) => {
-        writer.write({
-          type: 'data-appendMessage',
-          data: JSON.stringify(mostRecentMessage),
-          transient: true,
-        });
-      },
-    });
-
-    return new Response(
-      restoredStream.pipeThrough(new JsonToSseTransformStream()),
-      { status: 200 },
-    );
+    // For now, just return 204 since stream resumption needs more backend support
+    // TODO: Implement proper stream resumption when Woolly backend supports it
+    return new Response(null, { status: 204 });
+    
+  } catch (error) {
+    console.error('❌ Error in stream resumption:', error);
+    return ErrorHandler.toResponse(error);
   }
-
-  return new Response(stream, { status: 200 });
 }

@@ -1,4 +1,7 @@
 import { getWoollyBackendUrl } from '../constants';
+import { MessageTransforms } from '../message-transforms';
+import { ErrorHandler } from '../error-handler';
+import type { ChatMessage } from '@/lib/types';
 
 // ============================================================================
 // Types and Interfaces
@@ -252,42 +255,77 @@ export const chat = {
 };
 
 /**
- * Message management namespace
+ * Message management namespace - now using DRY utilities
  */
 export const message = {
   /**
-   * Get all messages for a chat
+   * Get all messages for a chat and convert to frontend format
    */
-  async list(chatId: string): Promise<BackendMessage[]> {
-    return request<BackendMessage[]>('GET', `/api/chat/${chatId}/messages`);
+  async list(chatId: string): Promise<ChatMessage[]> {
+    const backendMessages = await ErrorHandler.withErrorHandling(
+      () => request<BackendMessage[]>('GET', `/api/chat/${chatId}/messages`),
+      'Fetching messages'
+    );
+    return MessageTransforms.fromBackendMessages(backendMessages);
   },
 
   /**
-   * Create a new message
+   * Create a new message from ChatMessage
    */
-  async create(chatId: string, params: CreateMessageRequest): Promise<BackendMessage> {
-    return request<BackendMessage>('POST', `/api/chat/${chatId}/messages`, params);
+  async create(chatId: string, message: ChatMessage): Promise<BackendMessage> {
+    const backendMessage = MessageTransforms.toBackendMessage(message);
+    return ErrorHandler.withErrorHandling(
+      () => request<BackendMessage>('POST', `/api/chat/${chatId}/messages`, backendMessage),
+      'Creating message'
+    );
   },
 
   /**
-   * Update a message
+   * Create a new message from raw parameters (legacy support)
    */
-  async update(chatId: string, messageId: string, params: UpdateMessageRequest): Promise<BackendMessage> {
-    return request<BackendMessage>('PATCH', `/api/chat/${chatId}/messages/${messageId}`, params);
+  async createRaw(chatId: string, params: CreateMessageRequest): Promise<BackendMessage> {
+    return ErrorHandler.withErrorHandling(
+      () => request<BackendMessage>('POST', `/api/chat/${chatId}/messages`, params),
+      'Creating message'
+    );
+  },
+
+  /**
+   * Update a message content
+   */
+  async update(chatId: string, messageId: string, content: string): Promise<BackendMessage> {
+    return ErrorHandler.withErrorHandling(
+      () => request<BackendMessage>('PATCH', `/api/chat/${chatId}/messages/${messageId}`, { content }),
+      'Updating message'
+    );
+  },
+
+  /**
+   * Update a message from ChatMessage
+   */
+  async updateFromMessage(chatId: string, message: ChatMessage): Promise<BackendMessage> {
+    const content = MessageTransforms.extractTextContent(message);
+    return this.update(chatId, message.id, content);
   },
 
   /**
    * Delete a message
    */
   async delete(chatId: string, messageId: string): Promise<DeleteResponse> {
-    return request<DeleteResponse>('DELETE', `/api/chat/${chatId}/messages/${messageId}`);
+    return ErrorHandler.withErrorHandling(
+      () => request<DeleteResponse>('DELETE', `/api/chat/${chatId}/messages/${messageId}`),
+      'Deleting message'
+    );
   },
 
   /**
    * Update message model
    */
-  async updateModel(chatId: string, messageId: string, params: UpdateMessageModelRequest): Promise<BackendMessage> {
-    return request<BackendMessage>('PATCH', `/api/chat/${chatId}/messages/${messageId}/model`, params);
+  async updateModel(chatId: string, messageId: string, model: string): Promise<BackendMessage> {
+    return ErrorHandler.withErrorHandling(
+      () => request<BackendMessage>('PATCH', `/api/chat/${chatId}/messages/${messageId}/model`, { model }),
+      'Updating message model'
+    );
   },
 };
 

@@ -3,6 +3,7 @@
 import { SWRConfig } from 'swr';
 import { toast } from 'sonner';
 import { fetcher } from '@/lib/utils';
+import { ErrorHandler } from '@/lib/error-handler';
 
 interface SWRProviderProps {
   children: React.ReactNode;
@@ -37,13 +38,7 @@ export function SWRProvider({ children }: SWRProviderProps) {
           }
           return fetcher(url);
         },
-        onError: (error) => {
-          console.error('SWR Error:', error);
-          // Only show toast for non-404 errors and actual API errors to avoid spam
-          if (error?.status !== 404 && !error.message?.includes('Invalid SWR key')) {
-            toast.error('Failed to load data. Please try again.');
-          }
-        },
+        onError: ErrorHandler.handleSWRError,
         onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
           // Never retry on 404
           if (error?.status === 404) return;

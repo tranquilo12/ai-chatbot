@@ -3,6 +3,9 @@ import { cookies } from 'next/headers';
 import { Chat } from '@/components/chat';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
+import { backend } from '@/lib/api/backend-client';
+import { ErrorHandler } from '@/lib/error-handler';
+import type { ChatMessage } from '@/lib/types';
 
 // Mock session for development without auth
 const mockSession = {
@@ -18,9 +21,17 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
   
-  // Skip database checks for now - just use the chat ID
   const session = mockSession;
-  const uiMessages: any[] = []; // Start with empty messages
+  
+  // Fetch messages from Woolly backend using our DRY utilities
+  let uiMessages: ChatMessage[] = [];
+  try {
+    uiMessages = await backend.message.list(id);
+  } catch (error) {
+    // If chat doesn't exist or has no messages, start with empty array
+    console.log('No messages found for chat:', id, error);
+    uiMessages = [];
+  }
 
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get('chat-model');
