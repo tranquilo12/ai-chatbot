@@ -69,7 +69,10 @@ const PurePreviewMessage = ({
           )}
         >
           {message.role === 'assistant' && (
-            <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
+            <div className={cn(
+              "size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background",
+              { "animate-pulse": isLoading }
+            )}>
               <div className="translate-y-px">
                 <SparklesIcon size={14} />
               </div>
@@ -142,7 +145,15 @@ const PurePreviewMessage = ({
                             message.role === 'user',
                         })}
                       >
-                        <Markdown>{sanitizeText(part.text)}</Markdown>
+                        <div className={cn('relative', {
+                          'streaming-text': message.role === 'assistant' && isLoading
+                        })}>
+                          <Markdown>{sanitizeText(part.text)}</Markdown>
+                          {/* Blinking cursor for streaming assistant messages */}
+                          {message.role === 'assistant' && isLoading && (
+                            <span className="inline-block w-2 h-5 bg-current ml-1 streaming-cursor" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
