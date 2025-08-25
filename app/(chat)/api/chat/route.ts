@@ -10,13 +10,19 @@ export async function POST(request: Request) {
     const body = await request.json();
     // Handle both custom format and standard AI SDK format
     const chatId = body.id || body.chatId || crypto.randomUUID();
-    const message = body.message || (body.messages && body.messages[body.messages.length - 1]);
+
+    // Extract all messages for conversation context
+    const messages = body.messages || (body.message ? [body.message] : []);
+
+    if (!messages || messages.length === 0) {
+      throw new Error('No messages provided');
+    }
 
     // Generate a proper message ID for the assistant response
     const messageId = generateId();
 
-    // Use the WoollyStreamAdapter to create a properly formatted AI SDK stream
-    const stream = await WoollyStreamAdapter.createMessageStream(chatId, message, { messageId });
+    // Use the WoollyStreamAdapter to create a properly formatted AI SDK stream with full conversation history
+    const stream = await WoollyStreamAdapter.createMessageStream(chatId, messages, { messageId });
 
     const response = createUIMessageStreamResponse({
       stream,

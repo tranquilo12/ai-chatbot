@@ -51,19 +51,23 @@ const STREAM_PARTS = {
 export class WoollyStreamAdapter {
   static async createMessageStream(
     chatId: string,
-    message: ChatMessage,
+    messages: ChatMessage | ChatMessage[],
     options: { onProgress?: (chunk: string) => void; messageId?: string } = {}
   ) {
     return createUIMessageStream<ChatMessage>({
       execute: async ({ writer }) => {
         try {
-          const backendMessage = MessageTransforms.toBackendMessage(message);
+          // Handle both single message and array of messages
+          const messageArray = Array.isArray(messages) ? messages : [messages];
+
+          // Convert all messages to backend format for conversation context
+          const backendMessages = messageArray.map(msg => MessageTransforms.toBackendMessage(msg));
 
           const response = await fetch(`${getWoollyBackendUrl()}/api/chat/${chatId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              messages: [backendMessage],
+              messages: backendMessages,
               model: 'gpt-4o',
             }),
           }).then(async (res) => {
