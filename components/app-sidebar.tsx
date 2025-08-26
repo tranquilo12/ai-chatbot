@@ -24,7 +24,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
 
   return (
     <Sidebar className="group-data-[side=left]:border-r-0">
-      <SidebarHeader>
+      <SidebarHeader className="sidebar-container-padding sidebar-container-padding-y">
         <SidebarMenu>
           <div className="flex flex-row justify-between items-center">
             <Link
@@ -34,7 +34,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               }}
               className="flex flex-row gap-3 items-center"
             >
-              <span className="text-lg font-semibold px-2 hover:bg-muted rounded-md cursor-pointer">
+              <span className="text-lg font-semibold hover:bg-muted rounded-md cursor-pointer px-2 py-1">
                 Chatbot
               </span>
             </Link>
@@ -58,10 +58,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </div>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="sidebar-container-padding">
         <SidebarHistory user={user} />
       </SidebarContent>
-      <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
+      <SidebarFooter></SidebarFooter>
     </Sidebar>
   );
 }

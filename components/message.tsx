@@ -32,6 +32,7 @@ const PurePreviewMessage = ({
   regenerate,
   isReadonly,
   requiresScrollPadding,
+  allMessages,
 }: {
   chatId: string;
   message: ChatMessage;
@@ -41,6 +42,7 @@ const PurePreviewMessage = ({
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
   isReadonly: boolean;
   requiresScrollPadding: boolean;
+  allMessages?: ChatMessage[];
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
@@ -54,14 +56,14 @@ const PurePreviewMessage = ({
     <AnimatePresence>
       <motion.div
         data-testid={`message-${message.role}`}
-        className="w-full mx-auto max-w-3xl px-4 group/message"
+        className="w-full group/message prevent-x-overflow"
         initial={{ y: 5, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         data-role={message.role}
       >
         <div
           className={cn(
-            'flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl',
+            'flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl min-w-0',
             {
               'w-full': mode === 'edit',
               'group-data-[role=user]/message:w-fit': mode !== 'edit',
@@ -80,7 +82,7 @@ const PurePreviewMessage = ({
           )}
 
           <div
-            className={cn('flex flex-col gap-4 w-full', {
+            className={cn('flex flex-col gap-4 w-full min-w-0', {
               'min-h-96': message.role === 'assistant' && requiresScrollPadding,
             })}
           >
@@ -140,12 +142,12 @@ const PurePreviewMessage = ({
 
                       <div
                         data-testid="message-content"
-                        className={cn('flex flex-col gap-4', {
-                          'bg-primary text-primary-foreground px-3 py-2 rounded-xl':
+                        className={cn('flex flex-col gap-2 min-w-0 max-w-full', {
+                          'bg-primary text-primary-foreground px-3 py-2 rounded-xl user-message':
                             message.role === 'user',
                         })}
                       >
-                        <div className={cn('relative', {
+                        <div className={cn('relative break-words overflow-wrap-anywhere markdown-content', {
                           'streaming-text': message.role === 'assistant' && isLoading
                         })}>
                           <Markdown>{sanitizeText(part.text)}</Markdown>
@@ -327,8 +329,11 @@ const PurePreviewMessage = ({
                 message={message}
                 vote={vote}
                 isLoading={isLoading}
+                usage={(message.metadata as any)?.usage}
+                allMessages={allMessages}
               />
             )}
+
           </div>
         </div>
       </motion.div>
@@ -356,7 +361,7 @@ export const ThinkingMessage = () => {
   return (
     <motion.div
       data-testid="message-assistant-loading"
-      className="w-full mx-auto max-w-3xl px-4 group/message min-h-96"
+      className="w-full group/message min-h-96 prevent-x-overflow"
       initial={{ y: 5, opacity: 0 }}
       animate={{ y: 0, opacity: 1, transition: { delay: 1 } }}
       data-role={role}

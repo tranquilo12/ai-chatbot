@@ -1,26 +1,25 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { useEffect, useState } from 'react';
-import { useSWRConfig } from 'swr';
+import { useEffect, useState, memo } from 'react';
 import { ChatHeader } from '@/components/chat-header';
 import type { Vote } from '@/lib/db/schema';
-import { generateUUID } from '@/lib/utils';
 import { Artifact } from './artifact';
 import { MultimodalInput } from './multimodal-input';
 import { Messages } from './messages';
 import type { VisibilityType } from './visibility-selector';
 import { useArtifactSelector } from '@/hooks/use-artifact';
-import { unstable_serialize } from 'swr/infinite';
-import { getChatHistoryPaginationKey } from './sidebar-history';
 import type { Session } from 'next-auth';
 import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import type { Attachment, ChatMessage } from '@/lib/types';
-import { ErrorHandler } from '@/lib/error-handler';
+import { useUsage } from '@/lib/contexts/usage-context';
+import { useChatConfig } from '@/hooks/use-chat-config';
+import { ResizableChatLayout } from './resizable-chat-layout';
 
-export function Chat({
+
+function PureChat({
   id,
   initialMessages,
   initialChatModel,
@@ -42,8 +41,17 @@ export function Chat({
     initialVisibilityType,
   });
 
-  const { mutate } = useSWRConfig();
   const [input, setInput] = useState<string>('');
+  const { resetChatUsage } = useUsage();
+  const [currentChatTitle, setCurrentChatTitle] = useState<string>('New Chat');
+
+  // Use centralized chat configuration for consistency and DRY principles
+  const chatConfig = useChatConfig({
+    chatId: id,
+    initialModel: initialChatModel,
+    currentChatTitle,
+    setCurrentChatTitle,
+  });
 
   const {
     messages,
@@ -54,19 +62,22 @@ export function Chat({
     regenerate,
     resumeStream,
   } = useChat<ChatMessage>({
-    id,
+    ...chatConfig,
     messages: initialMessages,
-   generateId: generateUUID,
-    onFinish: () => {
-      mutate(unstable_serialize(getChatHistoryPaginationKey));
-    },
-    onError: ErrorHandler.toToast,
   });
 
   const searchParams = useSearchParams();
   const query = searchParams.get('query');
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
+
+  // Reset usage when chat changes
+  useEffect(() => {
+    resetChatUsage();
+    // Reset to default title for new chats
+    setCurrentChatTitle('New Chat');
+  }, [id, resetChatUsage]);
+
   useEffect(() => {
     if (query && !hasAppendedQuery) {
       sendMessage({
@@ -95,44 +106,48 @@ export function Chat({
 
   return (
     <>
-      <div className="flex flex-col min-w-0 h-dvh bg-background">
-        <ChatHeader
-          chatId={id}
-          selectedModelId={initialChatModel}
-          selectedVisibilityType={initialVisibilityType}
-          isReadonly={isReadonly}
-          session={session}
-        />
+      <ResizableChatLayout>
+        <div className="chat-main-container">
+          <ChatHeader
+            chatId={id}
+            selectedModelId={initialChatModel}
+            selectedVisibilityType={initialVisibilityType}
+            isReadonly={isReadonly}
+            session={session}
+          />
 
-        <Messages
-          chatId={id}
-          status={status}
-          votes={votes}
-          messages={messages}
-          setMessages={setMessages}
-          regenerate={regenerate}
-          isReadonly={isReadonly}
-          isArtifactVisible={isArtifactVisible}
-        />
+          <Messages
+            chatId={id}
+            status={status}
+            votes={votes}
+            messages={messages}
+            setMessages={setMessages}
+            regenerate={regenerate}
+            isReadonly={isReadonly}
+            isArtifactVisible={isArtifactVisible}
+          />
 
-        <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-          {!isReadonly && (
-            <MultimodalInput
-              chatId={id}
-              input={input}
-              setInput={setInput}
-              status={status}
-              stop={stop}
-              attachments={attachments}
-              setAttachments={setAttachments}
-              messages={messages}
-              setMessages={setMessages}
-              sendMessage={sendMessage}
-              selectedVisibilityType={visibilityType}
-            />
-          )}
-        </form>
-      </div>
+          <div className="chat-content-area chat-input-area chat-container-padding">
+            <form className="flex gap-2 w-full prevent-x-overflow">
+              {!isReadonly && (
+                <MultimodalInput
+                  chatId={id}
+                  input={input}
+                  setInput={setInput}
+                  status={status}
+                  stop={stop}
+                  attachments={attachments}
+                  setAttachments={setAttachments}
+                  messages={messages}
+                  setMessages={setMessages}
+                  sendMessage={sendMessage}
+                  selectedVisibilityType={visibilityType}
+                />
+              )}
+            </form>
+          </div>
+        </div>
+      </ResizableChatLayout>
 
       <Artifact
         chatId={id}
@@ -153,3 +168,6 @@ export function Chat({
     </>
   );
 }
+
+// Memoize the Chat component to prevent unnecessary re-renders
+export const Chat = memo(PureChat);

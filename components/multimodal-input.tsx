@@ -199,18 +199,23 @@ function PureMultimodalInput({
     [setAttachments],
   );
 
-  const { isAtBottom, scrollToBottom } = useScrollToBottom();
+  const { isAtBottom, hasScrollableContent, scrollToBottom } = useScrollToBottom();
 
-  useEffect(() => {
+  // Memoize the scroll effect to prevent unnecessary re-renders
+  const handleScrollOnSubmit = useCallback(() => {
     if (status === 'submitted') {
       scrollToBottom();
     }
   }, [status, scrollToBottom]);
 
+  useEffect(() => {
+    handleScrollOnSubmit();
+  }, [handleScrollOnSubmit]);
+
   return (
     <div className="relative w-full flex flex-col gap-4">
       <AnimatePresence>
-        {!isAtBottom && (
+        {!isAtBottom && hasScrollableContent && messages.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -251,12 +256,13 @@ function PureMultimodalInput({
         multiple
         onChange={handleFileChange}
         tabIndex={-1}
+        aria-label="File upload input"
       />
 
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div
           data-testid="attachments-preview"
-          className="flex flex-row gap-2 overflow-x-scroll items-end"
+          className="flex flex-row gap-2 overflow-x-auto items-end prevent-x-overflow"
         >
           {attachments.map((attachment) => (
             <PreviewAttachment key={attachment.url} attachment={attachment} />
@@ -283,7 +289,7 @@ function PureMultimodalInput({
         value={input}
         onChange={handleInput}
         className={cx(
-          'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700',
+          'min-h-[24px] max-h-[calc(75dvh)] resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700 break-words overflow-wrap-anywhere',
           className,
         )}
         rows={2}

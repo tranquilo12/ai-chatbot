@@ -44,9 +44,9 @@ function PureMessageList({
   useDataStream();
 
   const containerClasses = cn(
-    'flex flex-col gap-4 overflow-y-scroll',
+    'flex flex-col overflow-y-scroll overflow-x-hidden message-container prevent-x-overflow',
     {
-      'min-w-0 gap-6 flex-1 pt-4 relative': variant === 'default',
+      'min-w-0 flex-1 pt-4 relative items-center': variant === 'default',
       'h-full items-center px-4 pt-20': variant === 'artifact',
     },
     className
@@ -56,25 +56,28 @@ function PureMessageList({
     <div ref={containerRef} className={containerClasses}>
       {messages.length === 0 && variant === 'default' && <Greeting />}
 
-      {messages.map((message, index) => (
-        <PreviewMessage
-          key={message.id}
-          chatId={chatId}
-          message={message}
-          isLoading={status === 'streaming' && messages.length - 1 === index}
-          vote={votes?.find((vote) => vote.messageId === message.id)}
-          setMessages={setMessages}
-          regenerate={regenerate}
-          isReadonly={isReadonly}
-          requiresScrollPadding={
-            hasSentMessage && index === messages.length - 1
-          }
-        />
-      ))}
+      <div className="w-full flex flex-col gap-4 chat-container-padding">
+        {messages.map((message, index) => (
+          <PreviewMessage
+            key={message.id}
+            chatId={chatId}
+            message={message}
+            isLoading={status === 'streaming' && messages.length - 1 === index}
+            vote={votes?.find((vote) => vote.messageId === message.id)}
+            setMessages={setMessages}
+            regenerate={regenerate}
+            isReadonly={isReadonly}
+            requiresScrollPadding={
+              hasSentMessage && index === messages.length - 1
+            }
+            allMessages={messages}
+          />
+        ))}
 
-      {status === 'submitted' &&
-        messages.length > 0 &&
-        messages[messages.length - 1].role === 'user' && <ThinkingMessage />}
+        {status === 'submitted' &&
+          messages.length > 0 &&
+          messages[messages.length - 1].role === 'user' && <ThinkingMessage />}
+      </div>
 
       <motion.div
         ref={endRef}
