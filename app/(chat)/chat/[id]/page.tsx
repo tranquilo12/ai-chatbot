@@ -20,9 +20,9 @@ const mockSession = {
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
-  
+
   const session = mockSession;
-  
+
   // Fetch messages from Woolly backend using our DRY utilities
   let uiMessages: ChatMessage[] = [];
   try {

@@ -240,7 +240,8 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
+    /* Unified sidebar colors - same as main background for consistency */
+    --sidebar-background: 0 0% 100%; /* Same as --background */
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
@@ -274,7 +275,8 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
+    /* Unified sidebar colors - same as main background for consistency */
+    --sidebar-background: 240 10% 3.9%; /* Same as --background */
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -460,6 +462,17 @@ html {
   /* Header padding */
   --header-padding-x: 1.5rem; /* 24px - px-6 */
   --header-padding-y: 0.375rem; /* 6px - py-1.5 */
+
+  /* 3-Panel Color System - Unified backgrounds with subtle hierarchy */
+  --panel-primary: var(--background); /* Main chat area - primary background */
+  --panel-secondary: var(
+    --background
+  ); /* Sidebar - same as primary for uniformity */
+  --panel-tertiary: var(
+    --background
+  ); /* Right panel - same as primary for uniformity */
+  --panel-accent: var(--muted); /* Subtle accents and hover states */
+  --panel-border: var(--border); /* Consistent borders between panels */
 }
 
 /* DRY Layout Utility Classes */
@@ -507,6 +520,27 @@ html {
 .prevent-x-overflow {
   overflow-x: hidden;
   min-width: 0;
+}
+
+/* 3-Panel Color Utility Classes */
+.panel-primary-bg {
+  background-color: hsl(var(--panel-primary));
+}
+
+.panel-secondary-bg {
+  background-color: hsl(var(--panel-secondary));
+}
+
+.panel-tertiary-bg {
+  background-color: hsl(var(--panel-tertiary));
+}
+
+.panel-accent-bg {
+  background-color: hsl(var(--panel-accent));
+}
+
+.panel-border {
+  border-color: hsl(var(--panel-border));
 }
 
 /* Tighter text spacing for messages */

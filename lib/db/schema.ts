@@ -55,6 +55,7 @@ export const message = pgTable('Message_v2', {
   role: varchar('role').notNull(),
   parts: json('parts').notNull(),
   attachments: json('attachments').notNull(),
+  metadata: json('metadata'),
   createdAt: timestamp('createdAt').notNull(),
 });
 

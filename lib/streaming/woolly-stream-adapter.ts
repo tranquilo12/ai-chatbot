@@ -52,7 +52,12 @@ export class WoollyStreamAdapter {
   static async createMessageStream(
     chatId: string,
     messages: ChatMessage | ChatMessage[],
-    options: { onProgress?: (chunk: string) => void; messageId?: string } = {}
+    options: {
+      onProgress?: (chunk: string) => void;
+      messageId?: string;
+      model?: string;
+      onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void;
+    } = {}
   ) {
     return createUIMessageStream<ChatMessage>({
       execute: async ({ writer }) => {
@@ -68,7 +73,7 @@ export class WoollyStreamAdapter {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               messages: backendMessages,
-              model: 'gpt-4o',
+              model: options.model || 'gpt-4o',
             }),
           }).then(async (res) => {
             if (!res.ok) {
@@ -117,6 +122,12 @@ export class WoollyStreamAdapter {
               } else if (line.trim() && line.startsWith('e:')) {
                 // Handle finish event - send completion event
                 const data: FinishMetadata = JSON.parse(line.substring(2));
+
+                // Emit usage data to callback if provided
+                if (options.onUsage && data.usage) {
+                  options.onUsage(data.usage);
+                }
+
                 writer.write({ type: 'finish', messageMetadata: { ...data, createdAt: new Date().toISOString() } });
                 break;
               }

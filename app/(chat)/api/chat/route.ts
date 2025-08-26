@@ -13,6 +13,7 @@ export async function POST(request: Request) {
 
     // Extract all messages for conversation context
     const messages = body.messages || (body.message ? [body.message] : []);
+    const model = body.model || 'gpt-4o';
 
     if (!messages || messages.length === 0) {
       throw new Error('No messages provided');
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const messageId = generateId();
 
     // Use the WoollyStreamAdapter to create a properly formatted AI SDK stream with full conversation history
-    const stream = await WoollyStreamAdapter.createMessageStream(chatId, messages, { messageId });
+    const stream = await WoollyStreamAdapter.createMessageStream(chatId, messages, { messageId, model });
 
     const response = createUIMessageStreamResponse({
       stream,

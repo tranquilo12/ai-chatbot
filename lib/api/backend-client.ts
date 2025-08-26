@@ -65,6 +65,55 @@ export interface UpdateChatTitleResponse {
   title: string;
 }
 
+export interface GenerateTitleRequest {
+  chat_id: string;
+  model?: string;
+}
+
+export interface GenerateTitleResponse {
+  chat_id: string;
+  title: string;
+  model: string;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface GenerateSummaryRequest {
+  chat_id: string;
+  model?: string;
+}
+
+export interface GenerateSummaryResponse {
+  chat_id: string;
+  summary: string;
+  model: string;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+export interface GenerateRollingSummaryRequest {
+  chat_id: string;
+  skip_interactions: number;
+  model?: string;
+}
+
+export interface GenerateRollingSummaryResponse {
+  chat_id: string;
+  summary: string;
+  model: string;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 export interface CreateMessageRequest {
   role: 'user' | 'assistant';
   content: string;
@@ -170,14 +219,14 @@ async function request<T = any>(
   body?: any
 ): Promise<T> {
   const url = `${getWoollyBackendUrl()}${path}`;
-  
+
   // Validate URL before making request
   try {
     new URL(url);
   } catch (error) {
     throw fromBackendError(`Invalid backend URL: ${url}`, 500);
   }
-  
+
   const options: RequestInit = {
     method,
     headers: {
@@ -191,7 +240,7 @@ async function request<T = any>(
 
   try {
     const response = await fetch(url, options);
-    
+
     if (!response.ok) {
       let errorData: any;
       try {
@@ -251,6 +300,41 @@ export const chat = {
    */
   async updateTitle(chatId: string, params: UpdateChatTitleRequest): Promise<UpdateChatTitleResponse> {
     return request<UpdateChatTitleResponse>('PATCH', `/api/chat/${chatId}/title`, params);
+  },
+
+  /**
+   * Generate chat title using AI
+   */
+  async generateTitle(chatId: string, model: string = 'gpt-4o-mini'): Promise<GenerateTitleResponse> {
+    return request<GenerateTitleResponse>('POST', `/api/chat/${chatId}/generate-title`, {
+      chat_id: chatId,
+      model,
+    });
+  },
+
+  /**
+   * Generate conversation summary using AI
+   */
+  async generateSummary(chatId: string, model: string = 'gpt-4o-mini'): Promise<GenerateSummaryResponse> {
+    return request<GenerateSummaryResponse>('POST', `/api/chat/${chatId}/generate-summary`, {
+      chat_id: chatId,
+      model,
+    });
+  },
+
+  /**
+   * Generate rolling summary using AI (skips first N interactions)
+   */
+  async generateRollingSummary(
+    chatId: string,
+    skipInteractions: number,
+    model: string = 'gpt-4o-mini'
+  ): Promise<GenerateRollingSummaryResponse> {
+    return request<GenerateRollingSummaryResponse>('POST', `/api/chat/${chatId}/generate-rolling-summary`, {
+      chat_id: chatId,
+      skip_interactions: skipInteractions,
+      model,
+    });
   },
 };
 
@@ -340,10 +424,10 @@ export const agent = {
     const searchParams = new URLSearchParams();
     if (params?.repository) searchParams.set('repository', params.repository);
     if (params?.type) searchParams.set('type', params.type);
-    
+
     const query = searchParams.toString();
     const path = query ? `/api/agents?${query}` : '/api/agents';
-    
+
     return request<BackendAgent[]>('GET', path);
   },
 

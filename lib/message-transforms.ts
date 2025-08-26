@@ -1,18 +1,5 @@
 import type { ChatMessage } from '@/lib/types';
-
-// Backend message types (based on BACKEND_API_README.md)
-export interface BackendMessage {
-  id: string;
-  chat_id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  model?: string;
-  created_at: string;
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-  tool_invocations?: any[];
-}
+import type { BackendMessage } from '@/lib/api/backend-client';
 
 export interface BackendMessageRequest {
   role: 'user' | 'assistant';
@@ -42,7 +29,7 @@ export class MessageTransforms {
   static toBackendMessage(message: ChatMessage): BackendMessageRequest {
     // Backend only supports 'user' and 'assistant' roles
     const role = message.role === 'system' ? 'assistant' : message.role as 'user' | 'assistant';
-    
+
     return {
       role,
       content: this.extractTextContent(message),
@@ -56,12 +43,36 @@ export class MessageTransforms {
    * Replaces convertToUIMessages() logic in lib/utils.ts
    */
   static fromBackendMessage(backendMessage: BackendMessage): ChatMessage {
-    return {
+    const message: ChatMessage = {
       id: backendMessage.id,
       role: backendMessage.role,
       parts: [{ type: "text", text: backendMessage.content }],
       // toolInvocations: backendMessage.tool_invocations || [], // TODO: Add when AI SDK supports it
     } as ChatMessage;
+
+    // Add usage data to metadata if available
+    // Note: Backend client converts snake_case to camelCase, so we use camelCase field names
+    const promptTokens = (backendMessage as any).promptTokens;
+    const completionTokens = (backendMessage as any).completionTokens;
+    const totalTokens = (backendMessage as any).totalTokens;
+    const createdAt = (backendMessage as any).createdAt;
+
+    if (promptTokens != null || completionTokens != null || totalTokens != null) {
+      message.metadata = {
+        createdAt: createdAt,
+        usage: {
+          promptTokens: promptTokens,
+          completionTokens: completionTokens,
+          totalTokens: totalTokens,
+        }
+      };
+    } else if (createdAt) {
+      message.metadata = {
+        createdAt: createdAt,
+      };
+    }
+
+    return message;
   }
 
   /**

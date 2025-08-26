@@ -107,7 +107,7 @@ function PureChat({
   return (
     <>
       <ResizableChatLayout>
-        <div className="chat-main-container">
+        <div className="chat-main-container panel-primary-bg">
           <ChatHeader
             chatId={id}
             selectedModelId={initialChatModel}
@@ -127,7 +127,7 @@ function PureChat({
             isArtifactVisible={isArtifactVisible}
           />
 
-          <div className="chat-content-area chat-input-area chat-container-padding">
+          <div className="chat-content-area chat-input-area chat-container-padding panel-primary-bg">
             <form className="flex gap-2 w-full prevent-x-overflow">
               {!isReadonly && (
                 <MultimodalInput

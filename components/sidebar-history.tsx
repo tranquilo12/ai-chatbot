@@ -27,6 +27,7 @@ import { fetcher } from '@/lib/utils';
 import { ChatItem } from './sidebar-history-item';
 import useSWRInfinite from 'swr/infinite';
 import { LoaderIcon } from './icons';
+import { useChatTitleUpdate } from '@/hooks/use-chat-title-update';
 
 type GroupedChats = {
   today: Chat[];
@@ -96,6 +97,7 @@ export function getChatHistoryPaginationKey(
 export function SidebarHistory({ user }: { user: User | undefined }) {
   const { setOpenMobile } = useSidebar();
   const { id } = useParams();
+  const { updateChatTitleOptimistic } = useChatTitleUpdate();
 
   const {
     data: paginatedChatHistories,
@@ -159,6 +161,11 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     if (deleteId === id) {
       router.push('/');
     }
+  };
+
+  const handleTitleUpdate = (chatId: string, newTitle: string) => {
+    // Use the unified update mechanism for consistency
+    updateChatTitleOptimistic(chatId, newTitle);
   };
 
   if (!user) {
@@ -243,6 +250,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onTitleUpdate={handleTitleUpdate}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -263,6 +271,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onTitleUpdate={handleTitleUpdate}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -283,6 +292,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onTitleUpdate={handleTitleUpdate}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -303,6 +313,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onTitleUpdate={handleTitleUpdate}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -323,6 +334,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onTitleUpdate={handleTitleUpdate}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
