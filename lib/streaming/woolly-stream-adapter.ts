@@ -56,7 +56,10 @@ export class WoollyStreamAdapter {
       onProgress?: (chunk: string) => void;
       messageId?: string;
       model?: string;
+      repositoryName?: string;
+      agentId?: string;
       onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void;
+      onMCPHeaders?: (headers: Record<string, string>) => void;
     } = {}
   ) {
     return createUIMessageStream<ChatMessage>({
@@ -68,17 +71,40 @@ export class WoollyStreamAdapter {
           // Convert all messages to backend format for conversation context
           const backendMessages = messageArray.map(msg => MessageTransforms.toBackendMessage(msg));
 
-          const response = await fetch(`${getWoollyBackendUrl()}/api/chat/${chatId}`, {
+          // Build URL with repository parameter if provided
+          const url = new URL(`${getWoollyBackendUrl()}/api/v2/chat/${chatId}/ai`);
+          if (options.repositoryName) {
+            url.searchParams.set('repository_name', options.repositoryName);
+          }
+
+          const requestBody: any = {
+            messages: backendMessages,
+            model: options.model || 'gpt-4o',
+          };
+
+          if (options.agentId) {
+            requestBody.agent_id = options.agentId;
+          }
+
+          const response = await fetch(url.toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: backendMessages,
-              model: options.model || 'gpt-4o',
-            }),
+            body: JSON.stringify(requestBody),
           }).then(async (res) => {
             if (!res.ok) {
               throw ErrorHandler.fromBackendError(await res.json());
             }
+
+            // Extract MCP headers if callback provided
+            if (options.onMCPHeaders) {
+              const mcpHeaders: Record<string, string> = {};
+              ['X-Chat-Type', 'X-MCP-Enabled', 'X-MCP-Status', 'X-MCP-Fallback', 'X-MCP-Capabilities', 'X-Repository'].forEach(header => {
+                const value = res.headers.get(header);
+                if (value) mcpHeaders[header] = value;
+              });
+              options.onMCPHeaders(mcpHeaders);
+            }
+
             return res;
           });
 

@@ -2,6 +2,20 @@ import { getWoollyBackendUrl } from '../constants';
 import { MessageTransforms } from '../message-transforms';
 import { ErrorHandler } from '../error-handler';
 import type { ChatMessage } from '@/lib/types';
+import type {
+  MCPServer,
+  MCPStatus,
+  MCPResponse,
+  AgentMCPServerMapping,
+  CreateMCPServerRequest,
+  UpdateMCPServerRequest,
+  CreateAgentMCPMappingRequest,
+  UpdateAgentMCPMappingRequest,
+  CreateMCPResponseRequest,
+  MCPServerRegistrationRequest,
+  MCPServerRegistrationResponse,
+  MCPRegistryStatus
+} from '../mcp/types';
 
 // ============================================================================
 // Types and Interfaces
@@ -278,35 +292,35 @@ export const chat = {
    * Create a new chat
    */
   async create(params?: CreateChatRequest): Promise<CreateChatResponse> {
-    return request<CreateChatResponse>('POST', '/api/chat/create', params);
+    return request<CreateChatResponse>('POST', '/api/v2/chat/create', params);
   },
 
   /**
    * List all chats
    */
   async list(): Promise<BackendChat[]> {
-    return request<BackendChat[]>('GET', '/api/chats');
+    return request<BackendChat[]>('GET', '/api/v2/chats');
   },
 
   /**
    * Delete a chat
    */
   async delete(chatId: string): Promise<DeleteResponse> {
-    return request<DeleteResponse>('DELETE', `/api/chat/${chatId}`);
+    return request<DeleteResponse>('DELETE', `/api/v2/chat/${chatId}`);
   },
 
   /**
    * Update chat title
    */
   async updateTitle(chatId: string, params: UpdateChatTitleRequest): Promise<UpdateChatTitleResponse> {
-    return request<UpdateChatTitleResponse>('PATCH', `/api/chat/${chatId}/title`, params);
+    return request<UpdateChatTitleResponse>('PATCH', `/api/v2/chat/${chatId}/title`, params);
   },
 
   /**
    * Generate chat title using AI
    */
   async generateTitle(chatId: string, model: string = 'gpt-4o-mini'): Promise<GenerateTitleResponse> {
-    return request<GenerateTitleResponse>('POST', `/api/chat/${chatId}/generate-title`, {
+    return request<GenerateTitleResponse>('POST', `/api/v2/chat/${chatId}/generate-title`, {
       chat_id: chatId,
       model,
     });
@@ -316,7 +330,7 @@ export const chat = {
    * Generate conversation summary using AI
    */
   async generateSummary(chatId: string, model: string = 'gpt-4o-mini'): Promise<GenerateSummaryResponse> {
-    return request<GenerateSummaryResponse>('POST', `/api/chat/${chatId}/generate-summary`, {
+    return request<GenerateSummaryResponse>('POST', `/api/v2/chat/${chatId}/generate-summary`, {
       chat_id: chatId,
       model,
     });
@@ -330,7 +344,7 @@ export const chat = {
     skipInteractions: number,
     model: string = 'gpt-4o-mini'
   ): Promise<GenerateRollingSummaryResponse> {
-    return request<GenerateRollingSummaryResponse>('POST', `/api/chat/${chatId}/generate-rolling-summary`, {
+    return request<GenerateRollingSummaryResponse>('POST', `/api/v2/chat/${chatId}/generate-rolling-summary`, {
       chat_id: chatId,
       skip_interactions: skipInteractions,
       model,
@@ -347,7 +361,7 @@ export const message = {
    */
   async list(chatId: string): Promise<ChatMessage[]> {
     const backendMessages = await ErrorHandler.withErrorHandling(
-      () => request<BackendMessage[]>('GET', `/api/chat/${chatId}/messages`),
+      () => request<BackendMessage[]>('GET', `/api/v2/chat/${chatId}/messages`),
       'Fetching messages'
     );
     return MessageTransforms.fromBackendMessages(backendMessages);
@@ -359,7 +373,7 @@ export const message = {
   async create(chatId: string, message: ChatMessage): Promise<BackendMessage> {
     const backendMessage = MessageTransforms.toBackendMessage(message);
     return ErrorHandler.withErrorHandling(
-      () => request<BackendMessage>('POST', `/api/chat/${chatId}/messages`, backendMessage),
+      () => request<BackendMessage>('POST', `/api/v2/chat/${chatId}/messages`, backendMessage),
       'Creating message'
     );
   },
@@ -369,7 +383,7 @@ export const message = {
    */
   async createRaw(chatId: string, params: CreateMessageRequest): Promise<BackendMessage> {
     return ErrorHandler.withErrorHandling(
-      () => request<BackendMessage>('POST', `/api/chat/${chatId}/messages`, params),
+      () => request<BackendMessage>('POST', `/api/v2/chat/${chatId}/messages`, params),
       'Creating message'
     );
   },
@@ -379,7 +393,7 @@ export const message = {
    */
   async update(chatId: string, messageId: string, content: string): Promise<BackendMessage> {
     return ErrorHandler.withErrorHandling(
-      () => request<BackendMessage>('PATCH', `/api/chat/${chatId}/messages/${messageId}`, { content }),
+      () => request<BackendMessage>('PATCH', `/api/v2/chat/${chatId}/messages/${messageId}`, { content }),
       'Updating message'
     );
   },
@@ -397,7 +411,7 @@ export const message = {
    */
   async delete(chatId: string, messageId: string): Promise<DeleteResponse> {
     return ErrorHandler.withErrorHandling(
-      () => request<DeleteResponse>('DELETE', `/api/chat/${chatId}/messages/${messageId}`),
+      () => request<DeleteResponse>('DELETE', `/api/v2/chat/${chatId}/messages/${messageId}`),
       'Deleting message'
     );
   },
@@ -407,7 +421,7 @@ export const message = {
    */
   async updateModel(chatId: string, messageId: string, model: string): Promise<BackendMessage> {
     return ErrorHandler.withErrorHandling(
-      () => request<BackendMessage>('PATCH', `/api/chat/${chatId}/messages/${messageId}/model`, { model }),
+      () => request<BackendMessage>('PATCH', `/api/v2/chat/${chatId}/messages/${messageId}/model`, { model }),
       'Updating message model'
     );
   },
@@ -426,7 +440,7 @@ export const agent = {
     if (params?.type) searchParams.set('type', params.type);
 
     const query = searchParams.toString();
-    const path = query ? `/api/agents?${query}` : '/api/agents';
+    const path = query ? `/api/v2/agents?${query}` : '/api/v2/agents';
 
     return request<BackendAgent[]>('GET', path);
   },
@@ -435,35 +449,35 @@ export const agent = {
    * Get a specific agent
    */
   async get(agentId: string): Promise<BackendAgent> {
-    return request<BackendAgent>('GET', `/api/agents/${agentId}`);
+    return request<BackendAgent>('GET', `/api/v2/agents/${agentId}`);
   },
 
   /**
    * Create a new agent
    */
   async create(params: CreateAgentRequest): Promise<BackendAgent> {
-    return request<BackendAgent>('POST', '/api/agents', params);
+    return request<BackendAgent>('POST', '/api/v2/agents', params);
   },
 
   /**
    * Update an agent
    */
   async update(agentId: string, params: UpdateAgentRequest): Promise<BackendAgent> {
-    return request<BackendAgent>('PATCH', `/api/agents/${agentId}`, params);
+    return request<BackendAgent>('PATCH', `/api/v2/agents/${agentId}`, params);
   },
 
   /**
    * Delete an agent
    */
   async delete(agentId: string): Promise<DeleteResponse> {
-    return request<DeleteResponse>('DELETE', `/api/agents/${agentId}`);
+    return request<DeleteResponse>('DELETE', `/api/v2/agents/${agentId}`);
   },
 
   /**
    * Agent health check
    */
   async health(): Promise<BackendHealthStatus> {
-    return request<BackendHealthStatus>('GET', '/api/agents/health');
+    return request<BackendHealthStatus>('GET', '/api/v2/agents/health');
   },
 };
 
@@ -475,7 +489,168 @@ export const health = {
    * Basic health check
    */
   async check(): Promise<BackendHealthStatus> {
-    return request<BackendHealthStatus>('GET', '/api/health');
+    return request<BackendHealthStatus>('GET', '/api/v2/health');
+  },
+};
+
+/**
+ * MCP (Model Context Protocol) management namespace
+ */
+export const mcp = {
+  /**
+   * Get MCP status
+   */
+  async status(): Promise<MCPStatus> {
+    return request<MCPStatus>('GET', '/api/v2/mcp/status');
+  },
+
+  /**
+   * Register MCP server
+   */
+  async register(params: MCPServerRegistrationRequest): Promise<MCPServerRegistrationResponse> {
+    return request<MCPServerRegistrationResponse>('POST', '/api/v2/mcp/register', params);
+  },
+
+  /**
+   * Deregister MCP server
+   */
+  async deregister(): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>('POST', '/api/v2/mcp/deregister');
+  },
+
+  /**
+   * Get MCP registry status
+   */
+  async registryStatus(): Promise<MCPRegistryStatus> {
+    return request<MCPRegistryStatus>('GET', '/api/v2/mcp/registry/status');
+  },
+
+  /**
+   * Test MCP connection
+   */
+  async testConnection(): Promise<{ connectionTest: string; details: any }> {
+    return request<{ connectionTest: string; details: any }>('POST', '/api/v2/mcp/test-connection');
+  },
+};
+
+/**
+ * MCP Server CRUD operations namespace
+ */
+export const mcpServer = {
+  /**
+   * List all MCP servers
+   */
+  async list(): Promise<MCPServer[]> {
+    return request<MCPServer[]>('GET', '/api/v2/mcp/servers');
+  },
+
+  /**
+   * Get a specific MCP server
+   */
+  async get(serverId: string): Promise<MCPServer> {
+    return request<MCPServer>('GET', `/api/v2/mcp/servers/${serverId}`);
+  },
+
+  /**
+   * Create a new MCP server
+   */
+  async create(params: CreateMCPServerRequest): Promise<MCPServer> {
+    return request<MCPServer>('POST', '/api/v2/mcp/servers', params);
+  },
+
+  /**
+   * Update an MCP server
+   */
+  async update(serverId: string, params: UpdateMCPServerRequest): Promise<MCPServer> {
+    return request<MCPServer>('PATCH', `/api/v2/mcp/servers/${serverId}`, params);
+  },
+
+  /**
+   * Delete an MCP server
+   */
+  async delete(serverId: string): Promise<DeleteResponse> {
+    return request<DeleteResponse>('DELETE', `/api/v2/mcp/servers/${serverId}`);
+  },
+
+  /**
+   * Test server health
+   */
+  async testHealth(serverId: string): Promise<{ status: string; responseTimeMs?: number; error?: string }> {
+    return request<{ status: string; responseTimeMs?: number; error?: string }>('POST', `/api/v2/mcp/servers/${serverId}/test`);
+  },
+};
+
+/**
+ * Agent-MCP Server mapping namespace
+ */
+export const agentMCPMapping = {
+  /**
+   * List mappings for an agent
+   */
+  async listByAgent(agentId: string): Promise<AgentMCPServerMapping[]> {
+    return request<AgentMCPServerMapping[]>('GET', `/api/v2/agents/${agentId}/mcp-servers`);
+  },
+
+  /**
+   * List mappings for an MCP server
+   */
+  async listByServer(serverId: string): Promise<AgentMCPServerMapping[]> {
+    return request<AgentMCPServerMapping[]>('GET', `/api/v2/mcp/servers/${serverId}/agents`);
+  },
+
+  /**
+   * Create agent-MCP server mapping
+   */
+  async create(params: CreateAgentMCPMappingRequest): Promise<AgentMCPServerMapping> {
+    return request<AgentMCPServerMapping>('POST', '/api/v2/agent-mcp-mappings', params);
+  },
+
+  /**
+   * Update agent-MCP server mapping
+   */
+  async update(mappingId: string, params: UpdateAgentMCPMappingRequest): Promise<AgentMCPServerMapping> {
+    return request<AgentMCPServerMapping>('PATCH', `/api/v2/agent-mcp-mappings/${mappingId}`, params);
+  },
+
+  /**
+   * Delete agent-MCP server mapping
+   */
+  async delete(mappingId: string): Promise<DeleteResponse> {
+    return request<DeleteResponse>('DELETE', `/api/v2/agent-mcp-mappings/${mappingId}`);
+  },
+};
+
+/**
+ * MCP Response tracking namespace
+ */
+export const mcpResponse = {
+  /**
+   * List MCP responses for a chat
+   */
+  async listByChat(chatId: string): Promise<MCPResponse[]> {
+    return request<MCPResponse[]>('GET', `/api/v2/chats/${chatId}/mcp-responses`);
+  },
+
+  /**
+   * List MCP responses for a message
+   */
+  async listByMessage(chatId: string, messageId: string): Promise<MCPResponse[]> {
+    return request<MCPResponse[]>('GET', `/api/v2/chats/${chatId}/messages/${messageId}/mcp-responses`);
+  },
+
+  /**
+   * Create MCP response record
+   */
+  async create(params: CreateMCPResponseRequest): Promise<MCPResponse> {
+    return request<MCPResponse>('POST', '/api/v2/mcp-responses', params);
+  },
+
+  /**
+   * Get MCP response statistics
+   */
+  async getStats(serverId?: string): Promise<{ totalResponses: number; successRate: number; avgResponseTime: number }> {
+    const query = serverId ? `?serverId=${serverId}` : '';
+    return request<{ totalResponses: number; successRate: number; avgResponseTime: number }>('GET', `/api/v2/mcp-responses/stats${query}`);
   },
 };
 
@@ -491,6 +666,10 @@ export const backend = {
   message,
   agent,
   health,
+  mcp,
+  mcpServer,
+  agentMCPMapping,
+  mcpResponse,
   // Expose utility functions for advanced usage
   request,
   toCamelCase,

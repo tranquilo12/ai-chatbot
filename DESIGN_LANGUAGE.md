@@ -70,12 +70,24 @@ All three panels now use a consistent background color for visual unity:
 --sidebar-background: 240 10% 3.9%; /* Unified with main background */
 ```
 
-#### Color Hierarchy
+#### High-Contrast Color System
 
-- **Primary Background**: All panels use the same base background for unity
-- **Accent Elements**: Subtle muted backgrounds for interactive elements
-- **Borders**: Consistent border colors throughout the interface
-- **Text**: High contrast foreground colors for accessibility
+```css
+/* Chat-Specific High-Contrast Colors */
+--chat-user-bg: var(--primary); /* White background for user messages */
+--chat-user-text: var(--primary-foreground); /* Dark text on white background */
+--chat-code-bg: var(--muted); /* Distinct background for code blocks */
+--chat-input-bg: var(--background); /* Input matches main background */
+```
+
+#### Color Hierarchy & Maximum Visibility
+
+- **User Messages**: White background with dark text (maximum contrast 15:1 ratio)
+- **AI Messages**: Dark background with white text (98% lightness)
+- **Code Blocks**: Muted background with high-contrast borders and text
+- **Interactive Elements**: Clear visual distinction with visible borders
+- **Input Fields**: Subtle borders for definition without distraction
+- **Text Contrast**: Exceeds WCAG AAA standards (7:1+ contrast ratio)
 
 ### Typography Scale
 
@@ -149,6 +161,10 @@ All three panels now use a consistent background color for visual unity:
   /* Header padding */
   --header-padding-x: 1.5rem; /* 24px - header horizontal */
   --header-padding-y: 0.375rem; /* 6px - header vertical */
+
+  /* Content Width System - Optimal reading width */
+  --content-max-width: 48rem; /* 768px - optimal reading width */
+  --content-max-width-wide: 56rem; /* 896px - slightly wider for code blocks */
 }
 ```
 
@@ -158,7 +174,17 @@ All three panels now use a consistent background color for visual unity:
 - `.sidebar-container-padding` - Sidebar content
 - `.header-container-padding` - Header elements
 - `.chat-main-container` - Main chat wrapper
+- `.content-max-width` - Optimal reading width constraint (768px)
+- `.content-max-width-wide` - Wider content constraint for code blocks (896px)
 - `.prevent-x-overflow` - Overflow prevention
+
+### Content Width & Readability
+
+- **Optimal Reading Width**: 768px (48rem) for comfortable reading
+- **Wide Content**: 896px (56rem) for code blocks and wider content
+- **Responsive Behavior**: Content centers automatically with side margins
+- **Typography Principle**: 45-75 characters per line for optimal readability
+- **Implementation**: Applied to messages, input area, and greeting
 
 ### Message Spacing
 
