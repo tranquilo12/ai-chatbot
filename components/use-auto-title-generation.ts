@@ -71,7 +71,7 @@ export function useAutoTitleGeneration({
 			setLocalGeneratingTitle(false);
 			setIsGeneratingTitle(false);
 		}
-	}, [chatId, enabled, isGeneratingTitle, hasGeneratedTitle, messages, setTitle, refreshChats]);
+	}, [chatId, enabled, isGeneratingTitle, hasGeneratedTitle, messages, setTitle, refreshChats, setIsGeneratingTitle]);
 
 	// Auto-generate title when we have the first user message and first assistant response
 	useEffect(() => {

@@ -1,15 +1,16 @@
 import { backend } from './backend-client';
 import type {
-	MCPServer,
 	MCPStatus,
-	AgentMCPServerMapping,
-	CreateMCPServerRequest,
-	UpdateMCPServerRequest,
 	MCPServerRegistrationRequest,
+	MCPRegistryStatus,
 } from '../mcp/types';
 
 /**
- * High-level MCP client with convenience methods
+ * High-level MCP client for registry-based MCP server management
+ * 
+ * The backend uses a registry-based system where only ONE MCP server
+ * can be active at a time. This client provides convenience methods
+ * for managing the single active server.
  */
 export class MCPClient {
 	/**
@@ -43,45 +44,50 @@ export class MCPClient {
 	}
 
 	/**
-	 * Get all MCP servers with their health status
+	 * Get registry status (active server information)
 	 */
-	static async getAllServers(): Promise<MCPServer[]> {
+	static async getRegistryStatus(): Promise<MCPRegistryStatus> {
 		try {
-			return await backend.mcpServer.list();
+			const response = await backend.mcp.registryStatus();
+
+			// Map backend response to our expected format
+			return {
+				...response,
+				activeServer: response.url || response.details?.server_url,
+				isActive: response.status === 'active' || response.details?.registry_active === true,
+			};
 		} catch (error) {
-			console.warn('Failed to fetch MCP servers:', error);
-			return [];
+			console.warn('Failed to get registry status:', error);
+			return {
+				status: 'inactive',
+				message: 'Registry not available',
+				isActive: false,
+			};
 		}
 	}
 
 	/**
-	 * Get active (healthy) MCP servers
+	 * Register a new MCP server (replaces any existing active server)
 	 */
-	static async getActiveServers(): Promise<MCPServer[]> {
-		const servers = await this.getAllServers();
-		return servers.filter(server => server.isActive && server.isHealthy);
-	}
-
-	/**
-	 * Register a new MCP server with validation
-	 */
-	static async registerServer(params: MCPServerRegistrationRequest): Promise<{ success: boolean; server?: MCPServer; error?: string }> {
+	static async registerServer(params: MCPServerRegistrationRequest): Promise<{
+		success: boolean;
+		message?: string;
+		error?: string;
+		serverInfo?: { url: string; capabilities: string[] };
+	}> {
 		try {
-			const registrationResult = await backend.mcp.register(params);
+			const result = await backend.mcp.register(params);
 
-			if (registrationResult.success) {
-				// Fetch the updated server list to get the new server details
-				const servers = await this.getAllServers();
-				const newServer = servers.find(s => s.url === params.url);
-
+			if (result.success) {
 				return {
 					success: true,
-					server: newServer,
+					message: result.message,
+					serverInfo: result.serverInfo,
 				};
 			} else {
 				return {
 					success: false,
-					error: registrationResult.message,
+					error: result.message,
 				};
 			}
 		} catch (error) {
@@ -93,177 +99,14 @@ export class MCPClient {
 	}
 
 	/**
-	 * Create and register a server in one operation
+	 * Deregister the current active MCP server
 	 */
-	static async createAndRegisterServer(params: CreateMCPServerRequest): Promise<{ success: boolean; server?: MCPServer; error?: string }> {
-		try {
-			// First create the server record
-			const server = await backend.mcpServer.create(params);
-
-			// Then register it with the MCP system
-			const registrationResult = await this.registerServer({
-				url: server.url,
-				validateConnection: params.validateConnection,
-			});
-
-			if (registrationResult.success) {
-				return {
-					success: true,
-					server: registrationResult.server || server,
-				};
-			} else {
-				// If registration failed, clean up the created server
-				await backend.mcpServer.delete(server.id).catch(console.warn);
-				return registrationResult;
-			}
-		} catch (error) {
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : 'Unknown error',
-			};
-		}
-	}
-
-	/**
-	 * Update server and refresh registration if needed
-	 */
-	static async updateServer(serverId: string, params: UpdateMCPServerRequest): Promise<{ success: boolean; server?: MCPServer; error?: string }> {
-		try {
-			const server = await backend.mcpServer.update(serverId, params);
-
-			// If URL changed and server is active, re-register
-			if (params.url && server.isActive) {
-				const registrationResult = await this.registerServer({
-					url: server.url,
-					validateConnection: true,
-				});
-
-				if (!registrationResult.success) {
-					console.warn('Failed to re-register server after URL update:', registrationResult.error);
-				}
-			}
-
-			return {
-				success: true,
-				server,
-			};
-		} catch (error) {
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : 'Unknown error',
-			};
-		}
-	}
-
-	/**
-	 * Delete server and deregister from MCP system
-	 */
-	static async deleteServer(serverId: string): Promise<{ success: boolean; error?: string }> {
-		try {
-			// First deregister from MCP system (if it's the active server)
-			const registryStatus = await backend.mcp.registryStatus();
-			const server = await backend.mcpServer.get(serverId);
-
-			if (registryStatus.activeServer === server.url) {
-				await backend.mcp.deregister().catch(console.warn);
-			}
-
-			// Then delete the server record
-			await backend.mcpServer.delete(serverId);
-
-			return { success: true };
-		} catch (error) {
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : 'Unknown error',
-			};
-		}
-	}
-
-	/**
-	 * Test server health and update status
-	 */
-	static async testServerHealth(serverId: string): Promise<{ success: boolean; status?: string; responseTime?: number; error?: string }> {
-		try {
-			const result = await backend.mcpServer.testHealth(serverId);
-			return {
-				success: result.status === 'healthy',
-				status: result.status,
-				responseTime: result.responseTimeMs,
-				error: result.error,
-			};
-		} catch (error) {
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : 'Unknown error',
-			};
-		}
-	}
-
-	/**
-	 * Get servers mapped to a specific agent
-	 */
-	static async getServersForAgent(agentId: string): Promise<{ servers: MCPServer[]; mappings: AgentMCPServerMapping[] }> {
-		try {
-			const mappings = await backend.agentMCPMapping.listByAgent(agentId);
-			const allServers = await this.getAllServers();
-
-			const servers = mappings
-				.filter(mapping => mapping.isEnabled)
-				.sort((a, b) => a.priority - b.priority)
-				.map(mapping => allServers.find(server => server.id === mapping.mcpServerId))
-				.filter((server): server is MCPServer => server !== undefined);
-
-			return { servers, mappings };
-		} catch (error) {
-			console.warn('Failed to get servers for agent:', error);
-			return { servers: [], mappings: [] };
-		}
-	}
-
-	/**
-	 * Map an agent to MCP servers with priority ordering
-	 */
-	static async mapAgentToServers(agentId: string, serverIds: string[], priorities?: number[]): Promise<{ success: boolean; mappings?: AgentMCPServerMapping[]; error?: string }> {
-		try {
-			// Remove existing mappings for this agent
-			const existingMappings = await backend.agentMCPMapping.listByAgent(agentId);
-			await Promise.all(existingMappings.map(mapping =>
-				backend.agentMCPMapping.delete(mapping.id).catch(console.warn)
-			));
-
-			// Create new mappings
-			const mappings = await Promise.all(
-				serverIds.map((serverId, index) =>
-					backend.agentMCPMapping.create({
-						agentId,
-						mcpServerId: serverId,
-						priority: priorities?.[index] || index + 1,
-						isEnabled: true,
-					})
-				)
-			);
-
-			return {
-				success: true,
-				mappings,
-			};
-		} catch (error) {
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : 'Unknown error',
-			};
-		}
-	}
-
-	/**
-	 * Deregister the current MCP server
-	 */
-	static async deregisterServer(): Promise<{ success: boolean; error?: string }> {
+	static async deregisterServer(): Promise<{ success: boolean; error?: string; message?: string }> {
 		try {
 			const result = await backend.mcp.deregister();
 			return {
 				success: result.success,
+				message: result.message,
 				error: result.success ? undefined : result.message,
 			};
 		} catch (error) {
@@ -275,29 +118,157 @@ export class MCPClient {
 	}
 
 	/**
-	 * Get comprehensive MCP system status
+	 * Test connection to the current active MCP server
+	 */
+	static async testConnection(): Promise<{
+		success: boolean;
+		connectionTest?: string;
+		details?: any;
+		error?: string
+	}> {
+		try {
+			const result = await backend.mcp.testConnection();
+			return {
+				success: result.connectionTest === 'success',
+				connectionTest: result.connectionTest,
+				details: result.details,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			};
+		}
+	}
+
+	/**
+	 * Get comprehensive MCP system status including registry information
 	 */
 	static async getSystemStatus(): Promise<{
 		mcpStatus: MCPStatus;
-		totalServers: number;
-		activeServers: number;
-		healthyServers: number;
-		servers: MCPServer[];
+		registryStatus: MCPRegistryStatus;
+		activeServerUrl?: string;
+		isHealthy: boolean;
+		capabilities: string[];
 	}> {
-		const [mcpStatus, servers] = await Promise.all([
+		const [mcpStatus, registryStatus] = await Promise.all([
 			this.getStatus(),
-			this.getAllServers(),
+			this.getRegistryStatus(),
 		]);
 
-		const activeServers = servers.filter(s => s.isActive).length;
-		const healthyServers = servers.filter(s => s.isHealthy).length;
+		// Reconcile registry and MCP status - if registry shows active server but MCP status doesn't,
+		// use registry information as the source of truth for server URL
+		let activeServerUrl = registryStatus.activeServer;
+
+		// If registry shows active but MCP status shows no server, there might be a connection issue
+		// but the server is still registered
+		if (registryStatus.isActive && !mcpStatus.available) {
+			// Server is registered but not responding - show as registered but unhealthy
+			activeServerUrl = registryStatus.activeServer;
+		}
 
 		return {
 			mcpStatus,
-			totalServers: servers.length,
-			activeServers,
-			healthyServers,
-			servers,
+			registryStatus,
+			activeServerUrl,
+			isHealthy: mcpStatus.available && mcpStatus.status === 'healthy',
+			capabilities: mcpStatus.capabilities,
+		};
+	}
+
+	/**
+	 * Hot-swap MCP server (deregister current, register new)
+	 */
+	static async hotSwapServer(newServerUrl: string, validateConnection = true): Promise<{
+		success: boolean;
+		error?: string;
+		message?: string;
+		previousServer?: string;
+		newServer?: string;
+	}> {
+		try {
+			// Get current server info
+			const currentRegistry = await this.getRegistryStatus();
+			const previousServer = currentRegistry.activeServer;
+
+			// Deregister current server (if any)
+			if (currentRegistry.isActive) {
+				const deregisterResult = await this.deregisterServer();
+				if (!deregisterResult.success) {
+					console.warn('Failed to deregister current server:', deregisterResult.error);
+					// Continue anyway - might be a stale registration
+				}
+			}
+
+			// Register new server
+			const registerResult = await this.registerServer({
+				url: newServerUrl,
+				validateConnection,
+			});
+
+			if (registerResult.success) {
+				return {
+					success: true,
+					message: `Successfully swapped from ${previousServer || 'none'} to ${newServerUrl}`,
+					previousServer,
+					newServer: newServerUrl,
+				};
+			} else {
+				return {
+					success: false,
+					error: registerResult.error,
+					previousServer,
+				};
+			}
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			};
+		}
+	}
+
+	/**
+	 * Check if a specific server URL is currently active
+	 */
+	static async isServerActive(serverUrl: string): Promise<boolean> {
+		const registryStatus = await this.getRegistryStatus();
+		return registryStatus.isActive && registryStatus.activeServer === serverUrl;
+	}
+
+	/**
+	 * Get available capabilities from the current active server
+	 */
+	static async getCapabilities(): Promise<string[]> {
+		const status = await this.getStatus();
+		return status.capabilities || [];
+	}
+
+	/**
+	 * Check if a specific capability is available
+	 */
+	static async hasCapability(capabilityName: string): Promise<boolean> {
+		const capabilities = await this.getCapabilities();
+		return capabilities.includes(capabilityName);
+	}
+
+	/**
+	 * Refresh MCP status (useful for polling)
+	 */
+	static async refresh(): Promise<{
+		mcpStatus: MCPStatus;
+		registryStatus: MCPRegistryStatus;
+		timestamp: string;
+	}> {
+		const [mcpStatus, registryStatus] = await Promise.all([
+			this.getStatus(),
+			this.getRegistryStatus(),
+		]);
+
+		return {
+			mcpStatus,
+			registryStatus,
+			timestamp: new Date().toISOString(),
 		};
 	}
 }

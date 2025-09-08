@@ -117,13 +117,17 @@ export interface MCPStatus {
 }
 
 export interface MCPRegistryStatus {
+	status: string;
+	message: string;
+	url?: string;
+	details?: {
+		registry_active: boolean;
+		server_url: string;
+		server_type: string;
+	};
+	// Computed properties for backward compatibility
 	activeServer?: string;
 	isActive: boolean;
-	registryInfo: {
-		totalServers: number;
-		activeServers: number;
-		healthyServers: number;
-	};
 }
 
 export interface MCPServerRegistrationRequest {

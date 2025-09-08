@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
 	Server,
@@ -13,12 +15,14 @@ import {
 	CheckCircle,
 	RefreshCw,
 	Settings,
-	Zap
+	Zap,
+	X,
+	ExternalLink,
+	Trash2,
+	TestTube
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMCPServers } from '@/hooks/use-mcp-servers';
-import { MCPServerCard } from './mcp-server-card';
-import { MCPServerForm } from './mcp-server-form';
 
 interface MCPPanelProps {
 	className?: string;
@@ -26,27 +30,25 @@ interface MCPPanelProps {
 
 export function MCPPanel({ className }: MCPPanelProps) {
 	const {
-		servers,
+		activeServer,
 		mcpStatus,
+		registryStatus,
 		isLoading,
 		error,
-		selectedServerId,
 		isAddingServer,
-		refreshServers,
 		refreshStatus,
-		createServer,
-		updateServer,
-		deleteServer,
-		testServerHealth,
-		setSelectedServerId,
+		registerServer,
+		deregisterServer,
+		hotSwapServer,
+		testConnection,
 		setIsAddingServer,
 		clearError,
+		hasCapability,
 	} = useMCPServers();
 
 	const [showSystemStatus, setShowSystemStatus] = useState(false);
-
-	const activeServers = servers.filter(s => s.isActive);
-	const healthyServers = servers.filter(s => s.isActive && s.isHealthy);
+	const [newServerUrl, setNewServerUrl] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const getStatusIcon = () => {
 		if (mcpStatus.status === 'healthy') return <CheckCircle className="size-4 text-green-500" />;
@@ -61,7 +63,55 @@ export function MCPPanel({ className }: MCPPanelProps) {
 	};
 
 	const handleRefresh = async () => {
-		await Promise.all([refreshServers(), refreshStatus()]);
+		await refreshStatus();
+	};
+
+	const handleRegisterServer = async () => {
+		if (!newServerUrl.trim()) return;
+
+		setIsSubmitting(true);
+		try {
+			const result = await registerServer(newServerUrl.trim(), true);
+			if (result.success) {
+				setNewServerUrl('');
+				setIsAddingServer(false);
+			}
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleHotSwap = async () => {
+		if (!newServerUrl.trim()) return;
+
+		setIsSubmitting(true);
+		try {
+			const result = await hotSwapServer(newServerUrl.trim(), true);
+			if (result.success) {
+				setNewServerUrl('');
+				setIsAddingServer(false);
+			}
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleDeregister = async () => {
+		setIsSubmitting(true);
+		try {
+			await deregisterServer();
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleTestConnection = async () => {
+		setIsSubmitting(true);
+		try {
+			await testConnection();
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	return (
@@ -69,192 +119,284 @@ export function MCPPanel({ className }: MCPPanelProps) {
 			{/* Header */}
 			<div className="flex items-center justify-between p-4 border-b">
 				<div className="flex items-center gap-2">
-					<Zap className="size-4 text-primary" />
-					<h2 className="text-sm font-semibold">MCP Servers</h2>
-					<Badge variant="outline" className="text-xs">
-						{servers.length}
-					</Badge>
+					<Server className="size-5" />
+					<h2 className="text-lg font-semibold">MCP Registry</h2>
+					{getStatusIcon()}
 				</div>
-
-				<div className="flex items-center gap-1">
+				<div className="flex items-center gap-2">
 					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => setShowSystemStatus(!showSystemStatus)}
-						className="h-7 px-2"
-					>
-						<Settings className="size-3" />
-					</Button>
-					<Button
-						variant="ghost"
+						variant="outline"
 						size="sm"
 						onClick={handleRefresh}
 						disabled={isLoading}
-						className="h-7 px-2"
 					>
-						<RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
+						<RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setShowSystemStatus(!showSystemStatus)}
+					>
+						<Settings className="size-4" />
 					</Button>
 				</div>
 			</div>
 
-			{/* System Status */}
-			{showSystemStatus && (
-				<Card className="m-4 mb-2">
-					<CardHeader className="pb-2">
-						<div className="flex items-center justify-between">
-							<CardTitle className="text-xs flex items-center gap-2">
-								{getStatusIcon()}
-								MCP System Status
-							</CardTitle>
-							<Badge variant={getStatusColor() as any} className="text-xs">
-								{mcpStatus.status}
-							</Badge>
-						</div>
-					</CardHeader>
-					<CardContent className="pt-0">
-						<div className="grid grid-cols-2 gap-2 text-xs">
-							<div>
-								<span className="text-muted-foreground">Available:</span>
-								<span className="ml-1">{mcpStatus.available ? 'Yes' : 'No'}</span>
-							</div>
-							<div>
-								<span className="text-muted-foreground">Fallback:</span>
-								<span className="ml-1">{mcpStatus.fallbackMode ? 'Yes' : 'No'}</span>
-							</div>
-							<div>
-								<span className="text-muted-foreground">Active:</span>
-								<span className="ml-1">{activeServers.length}/{servers.length}</span>
-							</div>
-							<div>
-								<span className="text-muted-foreground">Healthy:</span>
-								<span className="ml-1">{healthyServers.length}/{activeServers.length}</span>
-							</div>
-						</div>
-
-						{mcpStatus.capabilities.length > 0 && (
-							<div className="mt-2">
-								<div className="text-xs text-muted-foreground mb-1">Capabilities:</div>
-								<div className="flex flex-wrap gap-1">
-									{mcpStatus.capabilities.map((cap) => (
-										<Badge key={cap} variant="outline" className="text-xs px-1 py-0">
-											{cap}
-										</Badge>
-									))}
-								</div>
-							</div>
-						)}
-
-						{mcpStatus.errorDetails && (
-							<div className="mt-2 text-xs text-red-500 bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">
-								{mcpStatus.errorDetails.message}
-							</div>
-						)}
-					</CardContent>
-				</Card>
-			)}
-
 			{/* Error Display */}
 			{error && (
-				<div className="mx-4 mb-2">
-					<div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/20 rounded px-3 py-2 flex items-center justify-between">
-						<span>{error}</span>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={clearError}
-							className="size-5 p-0 text-red-500 hover:text-red-600"
-						>
-							×
+				<div className="p-4 border-b bg-red-50 border-red-200">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2 text-red-700">
+							<AlertTriangle className="size-4" />
+							<span className="text-sm">{error}</span>
+						</div>
+						<Button variant="ghost" size="sm" onClick={clearError}>
+							<X className="size-4" />
 						</Button>
 					</div>
 				</div>
 			)}
 
-			{/* Content */}
-			<div className="flex-1 overflow-hidden">
-				<ScrollArea className="h-full">
-					<div className="p-4 space-y-3">
-						{/* Add Server Form */}
-						{isAddingServer && (
-							<MCPServerForm
-								onSubmit={createServer}
-								onCancel={() => setIsAddingServer(false)}
-								isLoading={isLoading}
-							/>
-						)}
+			<ScrollArea className="flex-1">
+				<div className="p-4 space-y-4">
+					{/* System Status */}
+					{showSystemStatus && (
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-sm">System Status</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-3">
+								<div className="grid grid-cols-2 gap-4 text-sm">
+									<div>
+										<span className="text-muted-foreground">MCP Status:</span>
+										<Badge variant={getStatusColor()} className="ml-2">
+											{mcpStatus.status}
+										</Badge>
+									</div>
+									<div>
+										<span className="text-muted-foreground">Available:</span>
+										<span className="ml-2">{mcpStatus.available ? 'Yes' : 'No'}</span>
+									</div>
+									<div>
+										<span className="text-muted-foreground">Registry Active:</span>
+										<span className="ml-2">{registryStatus.isActive ? 'Yes' : 'No'}</span>
+									</div>
+									<div>
+										<span className="text-muted-foreground">Fallback Mode:</span>
+										<span className="ml-2">{mcpStatus.fallbackMode ? 'Yes' : 'No'}</span>
+									</div>
+								</div>
 
-						{/* Add Server Button */}
-						{!isAddingServer && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setIsAddingServer(true)}
-								className="w-full h-8 text-xs border-dashed"
-							>
-								<Plus className="size-3 mr-1" />
-								Add MCP Server
-							</Button>
-						)}
-
-						{/* Server List */}
-						{servers.length === 0 && !isAddingServer ? (
-							<Card className="border-dashed">
-								<CardContent className="flex flex-col items-center justify-center py-8 text-center">
-									<Server className="size-8 text-muted-foreground mb-2" />
-									<CardTitle className="text-sm mb-1">No MCP Servers</CardTitle>
-									<CardDescription className="text-xs mb-3">
-										Add your first MCP server to enable advanced AI capabilities
-									</CardDescription>
-									<Button
-										size="sm"
-										onClick={() => setIsAddingServer(true)}
-										className="h-7 px-3 text-xs"
-									>
-										<Plus className="size-3 mr-1" />
-										Add Server
-									</Button>
-								</CardContent>
-							</Card>
-						) : (
-							<div className="space-y-2">
-								{servers.map((server) => (
-									<MCPServerCard
-										key={server.id}
-										server={server}
-										isSelected={selectedServerId === server.id}
-										onSelect={setSelectedServerId}
-										onUpdate={updateServer}
-										onDelete={deleteServer}
-										onTestHealth={testServerHealth}
-									/>
-								))}
-							</div>
-						)}
-
-						{/* Quick Stats */}
-						{servers.length > 0 && (
-							<Card className="mt-4">
-								<CardContent className="p-3">
-									<div className="grid grid-cols-3 gap-2 text-center">
-										<div>
-											<div className="text-lg font-semibold">{servers.length}</div>
-											<div className="text-xs text-muted-foreground">Total</div>
-										</div>
-										<div>
-											<div className="text-lg font-semibold text-green-600">{healthyServers.length}</div>
-											<div className="text-xs text-muted-foreground">Healthy</div>
-										</div>
-										<div>
-											<div className="text-lg font-semibold text-blue-600">{activeServers.length}</div>
-											<div className="text-xs text-muted-foreground">Active</div>
+								{mcpStatus.capabilities.length > 0 && (
+									<div>
+										<span className="text-sm text-muted-foreground">Capabilities:</span>
+										<div className="flex flex-wrap gap-1 mt-1">
+											{mcpStatus.capabilities.map((cap) => (
+												<Badge key={cap} variant="outline" className="text-xs">
+													{cap}
+												</Badge>
+											))}
 										</div>
 									</div>
-								</CardContent>
-							</Card>
-						)}
-					</div>
-				</ScrollArea>
-			</div>
+								)}
+
+								{mcpStatus.errorDetails && (
+									<div className="text-sm text-red-600">
+										<span className="font-medium">Error:</span> {mcpStatus.errorDetails.message}
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					)}
+
+					{/* Active Server */}
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Activity className="size-4" />
+								Active MCP Server
+							</CardTitle>
+							<CardDescription>
+								{activeServer
+									? 'Currently registered MCP server'
+									: 'No MCP server currently registered'
+								}
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{activeServer ? (
+								<div className="space-y-4">
+									{/* Server Info */}
+									<div className="p-3 bg-muted rounded-lg">
+										<div className="flex items-center justify-between mb-2">
+											<div className="flex items-center gap-2">
+												<span className="font-medium">{activeServer.url}</span>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => window.open(activeServer.url, '_blank')}
+												>
+													<ExternalLink className="size-3" />
+												</Button>
+											</div>
+											<div className="flex items-center gap-2">
+												<Badge variant={activeServer.isHealthy ? 'default' : 'destructive'}>
+													{activeServer.isHealthy ? 'Healthy' : 'Unhealthy'}
+												</Badge>
+											</div>
+										</div>
+
+										{activeServer.capabilities.length > 0 && (
+											<div>
+												<span className="text-sm text-muted-foreground">Capabilities:</span>
+												<div className="flex flex-wrap gap-1 mt-1">
+													{activeServer.capabilities.map((cap) => (
+														<Badge key={cap} variant="outline" className="text-xs">
+															{cap}
+														</Badge>
+													))}
+												</div>
+											</div>
+										)}
+
+										{activeServer.lastCheck && (
+											<div className="text-xs text-muted-foreground mt-2">
+												Last checked: {new Date(activeServer.lastCheck).toLocaleString()}
+											</div>
+										)}
+									</div>
+
+									{/* Server Actions */}
+									<div className="flex gap-2">
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleTestConnection}
+											disabled={isSubmitting}
+										>
+											<TestTube className="size-4 mr-1" />
+											Test Connection
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleDeregister}
+											disabled={isSubmitting}
+										>
+											<Trash2 className="size-4 mr-1" />
+											Deregister
+										</Button>
+									</div>
+								</div>
+							) : (
+								<div className="text-center py-8 text-muted-foreground">
+									<Server className="size-12 mx-auto mb-2 opacity-50" />
+									<p>No MCP server registered</p>
+									<p className="text-sm">Register a server to enable code analysis features</p>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+
+					{/* Server Registration */}
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Plus className="size-4" />
+								{activeServer ? 'Hot-Swap Server' : 'Register Server'}
+							</CardTitle>
+							<CardDescription>
+								{activeServer
+									? 'Replace the current server with a new one'
+									: 'Register a new MCP server to enable code analysis'
+								}
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{isAddingServer ? (
+								<div className="space-y-4">
+									<div>
+										<Label htmlFor="server-url">Server URL</Label>
+										<Input
+											id="server-url"
+											placeholder="http://localhost:8009/sse/"
+											value={newServerUrl}
+											onChange={(e) => setNewServerUrl(e.target.value)}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter') {
+													activeServer ? handleHotSwap() : handleRegisterServer();
+												}
+											}}
+										/>
+									</div>
+									<div className="flex gap-2">
+										<Button
+											onClick={activeServer ? handleHotSwap : handleRegisterServer}
+											disabled={!newServerUrl.trim() || isSubmitting}
+											className="flex-1"
+										>
+											<Zap className="size-4 mr-1" />
+											{activeServer ? 'Hot-Swap' : 'Register'}
+										</Button>
+										<Button
+											variant="outline"
+											onClick={() => {
+												setIsAddingServer(false);
+												setNewServerUrl('');
+											}}
+											disabled={isSubmitting}
+										>
+											Cancel
+										</Button>
+									</div>
+								</div>
+							) : (
+								<Button
+									onClick={() => setIsAddingServer(true)}
+									className="w-full"
+									variant={activeServer ? "outline" : "default"}
+								>
+									<Plus className="size-4 mr-1" />
+									{activeServer ? 'Hot-Swap Server' : 'Register Server'}
+								</Button>
+							)}
+						</CardContent>
+					</Card>
+
+					{/* Quick Actions */}
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-sm">Quick Actions</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="grid grid-cols-2 gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => {
+										setNewServerUrl('http://localhost:8009/sse/');
+										setIsAddingServer(true);
+									}}
+									className="text-xs"
+								>
+									Local Code Index
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => {
+										setNewServerUrl('http://localhost:8010/sse/');
+										setIsAddingServer(true);
+									}}
+									className="text-xs"
+								>
+									Custom Server
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+			</ScrollArea>
 		</div>
 	);
 }

@@ -3,14 +3,8 @@ import { MessageTransforms } from '../message-transforms';
 import { ErrorHandler } from '../error-handler';
 import type { ChatMessage } from '@/lib/types';
 import type {
-  MCPServer,
   MCPStatus,
   MCPResponse,
-  AgentMCPServerMapping,
-  CreateMCPServerRequest,
-  UpdateMCPServerRequest,
-  CreateAgentMCPMappingRequest,
-  UpdateAgentMCPMappingRequest,
   CreateMCPResponseRequest,
   MCPServerRegistrationRequest,
   MCPServerRegistrationResponse,
@@ -533,92 +527,8 @@ export const mcp = {
   },
 };
 
-/**
- * MCP Server CRUD operations namespace
- */
-export const mcpServer = {
-  /**
-   * List all MCP servers
-   */
-  async list(): Promise<MCPServer[]> {
-    return request<MCPServer[]>('GET', '/api/v2/mcp/servers');
-  },
-
-  /**
-   * Get a specific MCP server
-   */
-  async get(serverId: string): Promise<MCPServer> {
-    return request<MCPServer>('GET', `/api/v2/mcp/servers/${serverId}`);
-  },
-
-  /**
-   * Create a new MCP server
-   */
-  async create(params: CreateMCPServerRequest): Promise<MCPServer> {
-    return request<MCPServer>('POST', '/api/v2/mcp/servers', params);
-  },
-
-  /**
-   * Update an MCP server
-   */
-  async update(serverId: string, params: UpdateMCPServerRequest): Promise<MCPServer> {
-    return request<MCPServer>('PATCH', `/api/v2/mcp/servers/${serverId}`, params);
-  },
-
-  /**
-   * Delete an MCP server
-   */
-  async delete(serverId: string): Promise<DeleteResponse> {
-    return request<DeleteResponse>('DELETE', `/api/v2/mcp/servers/${serverId}`);
-  },
-
-  /**
-   * Test server health
-   */
-  async testHealth(serverId: string): Promise<{ status: string; responseTimeMs?: number; error?: string }> {
-    return request<{ status: string; responseTimeMs?: number; error?: string }>('POST', `/api/v2/mcp/servers/${serverId}/test`);
-  },
-};
-
-/**
- * Agent-MCP Server mapping namespace
- */
-export const agentMCPMapping = {
-  /**
-   * List mappings for an agent
-   */
-  async listByAgent(agentId: string): Promise<AgentMCPServerMapping[]> {
-    return request<AgentMCPServerMapping[]>('GET', `/api/v2/agents/${agentId}/mcp-servers`);
-  },
-
-  /**
-   * List mappings for an MCP server
-   */
-  async listByServer(serverId: string): Promise<AgentMCPServerMapping[]> {
-    return request<AgentMCPServerMapping[]>('GET', `/api/v2/mcp/servers/${serverId}/agents`);
-  },
-
-  /**
-   * Create agent-MCP server mapping
-   */
-  async create(params: CreateAgentMCPMappingRequest): Promise<AgentMCPServerMapping> {
-    return request<AgentMCPServerMapping>('POST', '/api/v2/agent-mcp-mappings', params);
-  },
-
-  /**
-   * Update agent-MCP server mapping
-   */
-  async update(mappingId: string, params: UpdateAgentMCPMappingRequest): Promise<AgentMCPServerMapping> {
-    return request<AgentMCPServerMapping>('PATCH', `/api/v2/agent-mcp-mappings/${mappingId}`, params);
-  },
-
-  /**
-   * Delete agent-MCP server mapping
-   */
-  async delete(mappingId: string): Promise<DeleteResponse> {
-    return request<DeleteResponse>('DELETE', `/api/v2/agent-mcp-mappings/${mappingId}`);
-  },
-};
+// Note: MCP Server CRUD operations removed - Backend uses registry-based system
+// Use mcp.register() and mcp.deregister() for server management instead
 
 /**
  * MCP Response tracking namespace
@@ -667,8 +577,6 @@ export const backend = {
   agent,
   health,
   mcp,
-  mcpServer,
-  agentMCPMapping,
   mcpResponse,
   // Expose utility functions for advanced usage
   request,

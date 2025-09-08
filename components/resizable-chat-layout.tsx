@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Maximize2, Minimize2, Monitor } from 'lucide-react';
+import { MCPPanel } from './mcp-panel';
 
 interface ResizableChatLayoutProps {
 	children: React.ReactNode;
@@ -28,18 +27,6 @@ export function ResizableChatLayout({ children, className }: ResizableChatLayout
 		localStorage.setItem('chat-width', newChatWidth.toString());
 	};
 
-	const setPresetWidth = (width: number) => {
-		setChatWidth(width);
-		localStorage.setItem('chat-width', width.toString());
-		// Force panel resize
-		window.dispatchEvent(new Event('resize'));
-	};
-
-	const presets = [
-		{ label: 'Narrow', width: 50, icon: Minimize2 },
-		{ label: 'Medium', width: 70, icon: Monitor },
-		{ label: 'Wide', width: 85, icon: Maximize2 },
-	];
 
 	return (
 		<ResizablePanelGroup
@@ -64,38 +51,9 @@ export function ResizableChatLayout({ children, className }: ResizableChatLayout
 				defaultSize={100 - chatWidth}
 				minSize={10}
 				maxSize={70}
-				className="flex flex-col items-center justify-center panel-tertiary-bg p-6"
+				className="flex flex-col panel-tertiary-bg"
 			>
-				<div className="text-muted-foreground text-xs text-center">
-					<div className="mb-4 text-xl">📏</div>
-					<div className="mb-2 font-medium">Chat Width Control</div>
-					<div className="mb-4 text-xs opacity-70">
-						Current: {Math.round(chatWidth)}%
-					</div>
-
-					<div className="space-y-2 mb-4">
-						<div className="text-xs opacity-70 mb-2">Quick Presets:</div>
-						{presets.map((preset) => {
-							const Icon = preset.icon;
-							return (
-								<Button
-									key={preset.width}
-									variant={Math.abs(chatWidth - preset.width) < 2 ? "default" : "outline"}
-									size="sm"
-									onClick={() => setPresetWidth(preset.width)}
-									className="w-full justify-start gap-2"
-								>
-									<Icon className="h-3 w-3" />
-									{preset.label} ({preset.width}%)
-								</Button>
-							);
-						})}
-					</div>
-
-					<div className="text-xs opacity-50">
-						Drag the handle or use presets to adjust
-					</div>
-				</div>
+				<MCPPanel className="h-full" />
 			</ResizablePanel>
 		</ResizablePanelGroup>
 	);

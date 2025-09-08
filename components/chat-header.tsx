@@ -8,15 +8,14 @@ import { SidebarToggle } from '@/components/sidebar-toggle';
 import { Button } from '@/components/ui/button';
 import { PlusIcon } from './icons';
 import { useSidebar } from './ui/sidebar';
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { type VisibilityType, VisibilitySelector } from './visibility-selector';
 import { UsageIndicator } from './usage-indicator';
-import type { Session } from 'next-auth';
+import type { Session, User } from 'next-auth';
 import { useTheme } from 'next-themes';
 import { MoonIcon, SunIcon } from 'lucide-react';
 import { SidebarUserNav } from './sidebar-user-nav';
-import type { User } from 'next-auth';
 
 function PureChatHeader({
   chatId,
@@ -34,8 +33,14 @@ function PureChatHeader({
   const router = useRouter();
   const { open } = useSidebar();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   const { width: windowWidth } = useWindowSize();
+
+  // Prevent hydration mismatch by only rendering theme-dependent content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="flex sticky top-0 panel-primary-bg items-center gap-2 justify-between header-container-padding">
@@ -85,16 +90,20 @@ function PureChatHeader({
               className="order-3 md:order-4"
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             >
-              {resolvedTheme === 'dark' ? (
-                <SunIcon className="h-4 w-4" />
+              {mounted ? (
+                resolvedTheme === 'dark' ? (
+                  <SunIcon className="size-4" />
+                ) : (
+                  <MoonIcon className="size-4" />
+                )
               ) : (
-                <MoonIcon className="h-4 w-4" />
+                <SunIcon className="size-4" />
               )}
               <span className="sr-only">Toggle theme</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            Toggle {resolvedTheme === 'light' ? 'dark' : 'light'} mode
+            {mounted ? `Toggle ${resolvedTheme === 'light' ? 'dark' : 'light'} mode` : 'Toggle theme'}
           </TooltipContent>
         </Tooltip>
       </div>

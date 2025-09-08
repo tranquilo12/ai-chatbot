@@ -17,6 +17,8 @@ import type { Attachment, ChatMessage } from '@/lib/types';
 import { useUsage } from '@/lib/contexts/usage-context';
 import { useChatConfig } from '@/hooks/use-chat-config';
 import { ResizableChatLayout } from './resizable-chat-layout';
+import { ChatTitleProvider } from './chat-title-context';
+import { ChatListProvider } from './chat-list-context';
 
 
 function PureChat({

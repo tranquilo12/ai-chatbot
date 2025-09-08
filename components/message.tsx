@@ -8,7 +8,6 @@ import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
-import { Weather } from './weather';
 import equal from 'fast-deep-equal';
 import { cn, sanitizeText } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -178,26 +177,6 @@ const PurePreviewMessage = ({
                 }
               }
 
-              if (type === 'tool-getWeather') {
-                const { toolCallId, state } = part;
-
-                if (state === 'input-available') {
-                  return (
-                    <div key={toolCallId} className="skeleton">
-                      <Weather />
-                    </div>
-                  );
-                }
-
-                if (state === 'output-available') {
-                  const { output } = part;
-                  return (
-                    <div key={toolCallId}>
-                      <Weather weatherAtLocation={output} />
-                    </div>
-                  );
-                }
-              }
 
               if (type === 'tool-createDocument') {
                 const { toolCallId, state } = part;
@@ -214,7 +193,7 @@ const PurePreviewMessage = ({
                 if (state === 'output-available') {
                   const { output } = part;
 
-                  if ('error' in output) {
+                  if (output && typeof output === 'object' && 'error' in output) {
                     return (
                       <div
                         key={toolCallId}
@@ -246,7 +225,7 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       <DocumentToolCall
                         type="update"
-                        args={input}
+                        args={input as { id: string; description: string }}
                         isReadonly={isReadonly}
                       />
                     </div>
@@ -256,7 +235,7 @@ const PurePreviewMessage = ({
                 if (state === 'output-available') {
                   const { output } = part;
 
-                  if ('error' in output) {
+                  if (output && typeof output === 'object' && 'error' in output) {
                     return (
                       <div
                         key={toolCallId}
@@ -271,7 +250,7 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       <DocumentToolResult
                         type="update"
-                        result={output}
+                        result={output as { id: string; title: string; kind: 'text' | 'code' | 'image' | 'sheet' }}
                         isReadonly={isReadonly}
                       />
                     </div>
@@ -288,7 +267,7 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       <DocumentToolCall
                         type="request-suggestions"
-                        args={input}
+                        args={input as { documentId: string }}
                         isReadonly={isReadonly}
                       />
                     </div>
@@ -298,7 +277,7 @@ const PurePreviewMessage = ({
                 if (state === 'output-available') {
                   const { output } = part;
 
-                  if ('error' in output) {
+                  if (output && typeof output === 'object' && 'error' in output) {
                     return (
                       <div
                         key={toolCallId}
@@ -313,7 +292,7 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       <DocumentToolResult
                         type="request-suggestions"
-                        result={output}
+                        result={output as { id: string; title: string; kind: 'text' | 'code' | 'image' | 'sheet' }}
                         isReadonly={isReadonly}
                       />
                     </div>
